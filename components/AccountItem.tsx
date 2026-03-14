@@ -1,5 +1,5 @@
 import { Colors } from '@/constants/theme';
-import { Account } from '@/db/sqlite/schema';
+import { Account } from '@/db/insforge/schema';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCurrency } from '@/utils/format';
 import { Banknote, ChevronRight, CreditCard, Edit3, Landmark, PiggyBank, Smartphone, Trash2, Wallet } from 'lucide-react-native';
@@ -179,4 +179,3 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
 });
-

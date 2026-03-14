@@ -1,4 +1,4 @@
-// 数据库表结构定义
+// Shared data model definitions for the InsForge-backed app.
 
 export interface Account {
   id: number;
@@ -22,32 +22,7 @@ export interface Transaction {
   created_at: string;
 }
 
-// 创建表的SQL语句
-export const CREATE_ACCOUNTS_TABLE = `
-  CREATE TABLE IF NOT EXISTS accounts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    balance REAL DEFAULT 0,
-    icon TEXT DEFAULT 'wallet',
-    color TEXT DEFAULT '#60A5FA',
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-  );
-`;
-
-export const CREATE_TRANSACTIONS_TABLE = `
-  CREATE TABLE IF NOT EXISTS transactions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    type TEXT NOT NULL CHECK(type IN ('income', 'expense')),
-    amount REAL NOT NULL,
-    category TEXT NOT NULL,
-    category_icon TEXT DEFAULT 'circle',
-    account_id INTEGER NOT NULL,
-    date TEXT NOT NULL,
-    description TEXT DEFAULT '',
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
-  );
-`;
+// InsForge/PostgreSQL 建表脚本位于 db/insforge/schema.sql
 
 // 预定义类别
 export const EXPENSE_CATEGORIES = [
@@ -81,4 +56,3 @@ export const ACCOUNT_ICONS = [
   { name: 'smartphone', label: '支付宝/微信' },
   { name: 'piggy-bank', label: '储蓄' },
 ];
-

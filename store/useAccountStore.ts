@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { Account } from '@/db/sqlite/schema';
-import * as db from '@/db/sqlite/database';
+import * as db from '@/db/insforge/database';
+import { Account } from '@/db/insforge/schema';
 
 interface AccountState {
   accounts: Account[];
@@ -73,4 +73,3 @@ export const useAccountStore = create<AccountState>((set, get) => ({
     }
   },
 }));
-

@@ -2,7 +2,8 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAccountStore } from '@/store/useAccountStore';
 import { useTransactionStore } from '@/store/useTransactionStore';
-import { ChevronRight, LogOut, Paintbrush, Settings, Shield, User } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { ChevronRight, Gamepad2, LogOut, Paintbrush, Settings, Shield, User } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,6 +12,7 @@ const menuItems = [
   { icon: User, label: '编辑资料', color: '#F472B6' },
   { icon: Paintbrush, label: '界面设置', color: '#F472B6' },
   { icon: Settings, label: '系统设置', color: '#9CA3AF' },
+  { icon: Gamepad2, label: '贪吃蛇', color: '#34D399', route: '/snake' },
   { icon: Shield, label: '隐私政策', color: '#60A5FA' },
   { icon: LogOut, label: '退出登录', color: '#F472B6' },
 ];
@@ -18,6 +20,7 @@ const menuItems = [
 export default function ProfileScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const router = useRouter();
 
   const { accounts, fetchAccounts } = useAccountStore();
   const { transactions, fetchTransactions } = useTransactionStore();
@@ -62,7 +65,14 @@ export default function ProfileScreen() {
           {menuItems.map((item, index) => {
             const IconComponent = item.icon;
             return (
-              <TouchableOpacity key={index} style={styles.menuItem}>
+              <TouchableOpacity
+                key={index}
+                style={styles.menuItem}
+                onPress={() => {
+                  if (item.route) {
+                    router.push(item.route);
+                  }
+                }}>
                 <View style={[styles.menuIcon, { backgroundColor: item.color + '20' }]}>
                   <IconComponent size={20} color={item.color} />
                 </View>

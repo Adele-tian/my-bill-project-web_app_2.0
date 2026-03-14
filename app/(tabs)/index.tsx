@@ -3,7 +3,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { FloatingActionButton } from '@/components/FloatingActionButton';
 import { TransactionItem } from '@/components/TransactionItem';
 import { Colors } from '@/constants/theme';
-import { Transaction } from '@/db/sqlite/schema';
+import { Transaction } from '@/db/insforge/schema';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAccountStore } from '@/store/useAccountStore';
 import { useTransactionStore } from '@/store/useTransactionStore';

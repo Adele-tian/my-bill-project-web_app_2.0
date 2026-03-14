@@ -1,5 +1,5 @@
-import * as db from '@/db/sqlite/database';
-import { Transaction } from '@/db/sqlite/schema';
+import * as db from '@/db/insforge/database';
+import { Transaction } from '@/db/insforge/schema';
 import { endOfMonth, endOfWeek, endOfYear, format, startOfMonth, startOfWeek, startOfYear } from 'date-fns';
 import { create } from 'zustand';
 
@@ -154,4 +154,3 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
     }
   },
 }));
-

@@ -1,5 +1,5 @@
 import { Colors } from '@/constants/theme';
-import { Transaction } from '@/db/sqlite/schema';
+import { Transaction } from '@/db/insforge/schema';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getCategoryByName } from '@/utils/categories';
 import { formatRelativeDate, formatTransactionAmount } from '@/utils/format';
@@ -180,4 +180,3 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
 });
-

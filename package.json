@@ -4,14 +4,19 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
+    "start:local": "CI=1 expo start --host localhost --port 8081",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint"
   },
+  "engines": {
+    "node": ">=20 <24"
+  },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
+    "@insforge/sdk": "^1.1.6",
     "@react-navigation/bottom-tabs": "^7.4.0",
     "@react-navigation/elements": "^2.6.3",
     "@react-navigation/native": "^7.1.8",

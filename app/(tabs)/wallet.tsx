@@ -1,7 +1,7 @@
 import { AccountItem } from '@/components/AccountItem';
 import { EmptyState } from '@/components/EmptyState';
 import { Colors } from '@/constants/theme';
-import { Account } from '@/db/sqlite/schema';
+import { Account } from '@/db/insforge/schema';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAccountStore } from '@/store/useAccountStore';
 import { formatCurrency } from '@/utils/format';

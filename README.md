@@ -1,50 +1,57 @@
-# Welcome to your Expo app 👋
+# Bill Main
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+# my-bill-project-web_app_2.0
 
-## Get started
+An Expo bookkeeping app backed by InsForge.
 
-1. Install dependencies
+## Local setup
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+1. Install dependencies:
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+2. Copy `.env.example` into your local env file and fill in the InsForge values:
 
-## Learn more
+```bash
+EXPO_PUBLIC_INSFORGE_BASE_URL=https://zdfr6rz9.us-east.insforge.app
+EXPO_PUBLIC_INSFORGE_API_KEY=your-insforge-anon-key
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+3. Start the app with the stable local command:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+npm run start:local
+```
 
-## Join the community
+This project is most reliable on Node 20 or 22 LTS. Node 24 triggered an Expo CLI port-selection failure during local startup in this environment.
 
-Join our community of developers creating universal apps.
+## InsForge database
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+This project stores accounts and transactions in InsForge PostgreSQL using the SDK client in `db/insforge/client.ts`.
+
+The cloud schema lives in `db/insforge/schema.sql` and should be applied before the app starts. It creates:
+
+- `accounts`
+- `transactions`
+- indexes for transaction account lookup and date sorting
+
+If the schema is missing, `initDatabase()` will fail during app startup.
+
+## Local runtime notes
+
+- `npm run start:local` starts Expo in CI mode, binds to `localhost`, and locks Metro to port `8081`
+- `.env.local` is loaded automatically so the app can connect to InsForge during local development
+- Recommended Node version is `22` as recorded in `.nvmrc`
+
+## Current backend model
+
+- `accounts` keeps the current balance for each wallet/account
+- `transactions` stores income and expense records linked by `account_id`
+- account balances are updated by the app service layer in `db/insforge/database.ts`
+
+## Notes
+
+- The app currently uses InsForge as a shared backend without user-level row isolation.
+- If you later add authentication, the next step is enabling RLS and attaching records to a user id.
