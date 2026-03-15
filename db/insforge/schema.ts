@@ -7,6 +7,7 @@ export interface Account {
   balance: number;
   icon: string;
   color: string;
+  note?: string;
   created_at: string;
 }
 

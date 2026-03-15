@@ -1,6 +1,7 @@
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAccountStore } from '@/store/useAccountStore';
+import { useAuthStore } from '@/store/useAuthStore';
 import { ACCOUNT_ICONS } from '@/utils/categories';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as LucideIcons from 'lucide-react-native';
@@ -18,8 +19,10 @@ export default function AddAccountScreen() {
   const isEditMode = !!id;
 
   const { accounts, addAccount, updateAccount } = useAccountStore();
+  const { signOut } = useAuthStore();
   const [name, setName] = useState('');
   const [balance, setBalance] = useState('');
+  const [note, setNote] = useState('');
   const [selectedIcon, setSelectedIcon] = useState<AccountIconOption>(ACCOUNT_ICONS[0]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -30,6 +33,7 @@ export default function AddAccountScreen() {
       if (account) {
         setName(account.name);
         setBalance(account.balance.toString());
+        setNote(account.note || '');
         const icon = ACCOUNT_ICONS.find(i => i.name === account.icon) || ACCOUNT_ICONS[0];
         setSelectedIcon(icon);
       }
@@ -44,24 +48,34 @@ export default function AddAccountScreen() {
 
     setIsLoading(true);
     try {
+      const trimmedNote = note.trim();
+      const accountPayload = {
+        name: name.trim(),
+        balance: parseFloat(balance) || 0,
+        icon: selectedIcon.name,
+        color: selectedIcon.color,
+        ...(trimmedNote ? { note: trimmedNote } : {}),
+      };
+
       if (isEditMode && id) {
-        await updateAccount(parseInt(id), {
-          name: name.trim(),
-          balance: parseFloat(balance) || 0,
-          icon: selectedIcon.name,
-          color: selectedIcon.color
-        });
+        await updateAccount(parseInt(id), accountPayload);
       } else {
-        await addAccount({
-          name: name.trim(),
-          balance: parseFloat(balance) || 0,
-          icon: selectedIcon.name,
-          color: selectedIcon.color
-        });
+        await addAccount(accountPayload);
       }
-      router.replace('/wallet');
+      router.replace('/(tabs)/wallet');
     } catch (error) {
       const message = (error as Error).message || (isEditMode ? '更新失败' : '保存失败');
+      if (message.includes('JWT expired')) {
+        await signOut();
+        Alert.alert('登录已过期', '请重新登录后再保存账户。', [
+          { text: '确定', onPress: () => router.replace('/sign-in') }
+        ]);
+        return;
+      }
+      if (message.includes("Could not find the 'note' column")) {
+        Alert.alert('数据库未升级', '当前数据库还没有账户备注字段。你可以先留空备注再保存，或先执行 note 字段迁移 SQL。');
+        return;
+      }
       Alert.alert('错误', message);
     } finally {
       setIsLoading(false);
@@ -94,6 +108,19 @@ export default function AddAccountScreen() {
           </View>
         </View>
         <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>备注</Text>
+          <TextInput
+            style={[styles.input, styles.noteInput, { color: colors.text, borderColor: colors.border }]}
+            placeholder="例如：日常零用、工资卡、备用金"
+            placeholderTextColor={colors.textSecondary}
+            value={note}
+            onChangeText={setNote}
+            multiline
+            textAlignVertical="top"
+            maxLength={60}
+          />
+        </View>
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
           <Text style={[styles.label, { color: colors.textSecondary }]}>选择图标</Text>
           <View style={styles.iconGrid}>
             {ACCOUNT_ICONS.map((item) => {
@@ -121,6 +148,7 @@ const styles = StyleSheet.create({
   section: { marginHorizontal: 20, borderRadius: 16, padding: 16, marginBottom: 16 },
   label: { fontSize: 14, marginBottom: 12 },
   input: { borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 16 },
+  noteInput: { minHeight: 96 },
   balanceRow: { flexDirection: 'row', alignItems: 'center' },
   currency: { fontSize: 24, fontWeight: 'bold', marginRight: 8 },
   balanceInput: { flex: 1, fontSize: 24, fontWeight: 'bold' },

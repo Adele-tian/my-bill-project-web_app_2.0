@@ -1,4 +1,5 @@
 import { insforge } from '@/db/insforge/client';
+import { clearStoredInsforgeSession, getStoredInsforgeToken, isJwtExpired } from '@/db/insforge/token-storage';
 import { useAccountStore } from '@/store/useAccountStore';
 import { useTransactionStore } from '@/store/useTransactionStore';
 import { create } from 'zustand';
@@ -56,15 +57,33 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isHydrating: true, error: null });
 
     try {
+      const storedToken = getStoredInsforgeToken();
+      if (storedToken && isJwtExpired(storedToken)) {
+        clearStoredInsforgeSession();
+        resetDomainStores();
+        set({
+          user: null,
+          accessToken: null,
+          pendingSignUpEmail: null,
+          isHydrating: false,
+          error: null,
+          notice: '登录状态已过期，请重新登录。',
+        });
+        return;
+      }
+
       const { data, error } = await insforge.auth.getCurrentUser();
       if (error) {
+        if (error.message?.includes('JWT expired')) {
+          clearStoredInsforgeSession();
+        }
         set({ user: null, accessToken: null, isHydrating: false, error: null });
         return;
       }
 
       set({
         user: normalizeUser(data?.user),
-        accessToken: null,
+        accessToken: storedToken ?? null,
         pendingSignUpEmail: null,
         isHydrating: false,
         error: null,

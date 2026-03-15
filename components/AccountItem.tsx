@@ -84,9 +84,18 @@ export function AccountItem({
 
         <View style={styles.info}>
           <Text style={[styles.name, { color: colors.text }]}>{account.name}</Text>
-          <Text style={[styles.balance, { color: colors.textSecondary }]}>
-            {formatCurrency(account.balance)}
-          </Text>
+          <View style={styles.metaRow}>
+            <Text style={[styles.balanceText, { color: colors.textSecondary }]}>
+              {formatCurrency(account.balance)}
+            </Text>
+            {account.note ? (
+              <View style={[styles.noteChip, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                <Text style={[styles.noteText, { color: colors.textSecondary }]} numberOfLines={1}>
+                  {account.note}
+                </Text>
+              </View>
+            ) : null}
+          </View>
         </View>
 
         {showArrow && <ChevronRight size={20} color={colors.textSecondary} />}
@@ -137,9 +146,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-  balance: {
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 6,
+    flexWrap: 'wrap',
+  },
+  balanceText: {
     fontSize: 14,
-    marginTop: 2,
+  },
+  noteChip: {
+    maxWidth: '70%',
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  noteText: {
+    fontSize: 12,
   },
   menuOverlay: {
     position: 'absolute',

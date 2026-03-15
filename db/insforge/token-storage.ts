@@ -1,11 +1,64 @@
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
+export const INSFORGE_TOKEN_KEY = 'insforge-auth-token';
+export const INSFORGE_USER_KEY = 'insforge-auth-user';
+
 const webMemoryStorage = new Map<string, string>();
 const nativeMemoryStorage = new Map<string, string>();
 const nativeSecureStoreOptions: SecureStore.SecureStoreOptions = {
   keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK,
 };
+
+function decodeBase64Url(value: string): string | null {
+  const base64 = value.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(value.length / 4) * 4, '=');
+
+  try {
+    if (typeof globalThis.atob === 'function') {
+      return globalThis.atob(base64);
+    }
+
+    if (typeof Buffer !== 'undefined') {
+      return Buffer.from(base64, 'base64').toString('utf-8');
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+export function getStoredInsforgeToken(): string | null {
+  return insforgeTokenStorage.getItem(INSFORGE_TOKEN_KEY);
+}
+
+export function clearStoredInsforgeSession(): void {
+  insforgeTokenStorage.removeItem(INSFORGE_TOKEN_KEY);
+  insforgeTokenStorage.removeItem(INSFORGE_USER_KEY);
+}
+
+export function isJwtExpired(token: string, clockSkewSeconds = 30): boolean {
+  const payloadSegment = token.split('.')[1];
+  if (!payloadSegment) {
+    return false;
+  }
+
+  const decodedPayload = decodeBase64Url(payloadSegment);
+  if (!decodedPayload) {
+    return false;
+  }
+
+  try {
+    const payload = JSON.parse(decodedPayload) as { exp?: number };
+    if (typeof payload.exp !== 'number') {
+      return false;
+    }
+
+    return payload.exp * 1000 <= Date.now() + clockSkewSeconds * 1000;
+  } catch {
+    return false;
+  }
+}
 
 function getWebStorage(): Storage | null {
   if (Platform.OS !== 'web' || typeof window === 'undefined') {

@@ -1,6 +1,9 @@
 alter table public.accounts
   add column if not exists user_id text;
 
+alter table public.accounts
+  add column if not exists note text not null default '';
+
 alter table public.transactions
   add column if not exists user_id text;
 

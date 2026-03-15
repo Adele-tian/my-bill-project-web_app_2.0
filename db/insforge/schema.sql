@@ -5,6 +5,7 @@ create table if not exists public.accounts (
   balance numeric(12, 2) not null default 0,
   icon text not null default 'wallet',
   color text not null default '#60A5FA',
+  note text not null default '',
   created_at timestamptz not null default timezone('utc', now())
 );
 

@@ -71,6 +71,7 @@ export default function WalletScreen() {
               <AccountItem
                 key={account.id}
                 account={account}
+                onPress={() => handleEditAccount(account)}
                 onEdit={handleEditAccount}
                 onDelete={handleDeleteAccount}
               />
