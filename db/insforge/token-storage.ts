@@ -2,6 +2,10 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 const webMemoryStorage = new Map<string, string>();
+const nativeMemoryStorage = new Map<string, string>();
+const nativeSecureStoreOptions: SecureStore.SecureStoreOptions = {
+  keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK,
+};
 
 function getWebStorage(): Storage | null {
   if (Platform.OS !== 'web' || typeof window === 'undefined') {
@@ -22,7 +26,15 @@ export const insforgeTokenStorage = {
       return storage ? storage.getItem(key) : webMemoryStorage.get(key) ?? null;
     }
 
-    return SecureStore.getItem(key);
+    try {
+      const value = SecureStore.getItem(key, nativeSecureStoreOptions);
+      if (value !== null) {
+        nativeMemoryStorage.set(key, value);
+      }
+      return value ?? nativeMemoryStorage.get(key) ?? null;
+    } catch {
+      return nativeMemoryStorage.get(key) ?? null;
+    }
   },
 
   setItem(key: string, value: string): void {
@@ -37,7 +49,13 @@ export const insforgeTokenStorage = {
       return;
     }
 
-    SecureStore.setItem(key, value);
+    nativeMemoryStorage.set(key, value);
+
+    try {
+      SecureStore.setItem(key, value, nativeSecureStoreOptions);
+    } catch {
+      // Keep the in-memory session alive when iOS keychain access fails in Expo Go/simulator.
+    }
   },
 
   removeItem(key: string): void {
@@ -52,6 +70,9 @@ export const insforgeTokenStorage = {
       return;
     }
 
-    SecureStore.deleteItemAsync(key);
+    nativeMemoryStorage.delete(key);
+    SecureStore.deleteItemAsync(key, nativeSecureStoreOptions).catch(() => {
+      // Ignore cleanup failures so logout can still proceed.
+    });
   },
 };
