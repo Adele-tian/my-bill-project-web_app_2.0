@@ -111,7 +111,7 @@ export default function AddTransactionScreen() {
           description: description || selectedCategory.name
         });
       }
-      router.back();
+      router.replace('/');
     } catch (error) {
       Alert.alert('错误', isEditMode ? '更新失败' : '保存失败');
     }

@@ -59,7 +59,7 @@ export default function AddAccountScreen() {
           color: selectedIcon.color
         });
       }
-      router.back();
+      router.replace('/wallet');
     } catch (error) {
       const message = (error as Error).message || (isEditMode ? '更新失败' : '保存失败');
       Alert.alert('错误', message);
