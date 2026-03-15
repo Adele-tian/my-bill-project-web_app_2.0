@@ -10,10 +10,11 @@ interface AccountState {
   
   // Actions
   fetchAccounts: () => Promise<void>;
-  addAccount: (account: Omit<Account, 'id' | 'created_at'>) => Promise<number>;
+  addAccount: (account: Omit<Account, 'id' | 'created_at' | 'user_id'>) => Promise<number>;
   updateAccount: (id: number, account: Partial<Account>) => Promise<void>;
   removeAccount: (id: number) => Promise<void>;
   refreshTotalBalance: () => Promise<void>;
+  reset: () => void;
 }
 
 export const useAccountStore = create<AccountState>((set, get) => ({
@@ -71,5 +72,14 @@ export const useAccountStore = create<AccountState>((set, get) => ({
     } catch (error) {
       set({ error: (error as Error).message });
     }
+  },
+
+  reset: () => {
+    set({
+      accounts: [],
+      totalBalance: 0,
+      isLoading: false,
+      error: null,
+    });
   },
 }));

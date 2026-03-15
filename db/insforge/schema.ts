@@ -2,6 +2,7 @@
 
 export interface Account {
   id: number;
+  user_id: string;
   name: string;
   balance: number;
   icon: string;
@@ -11,6 +12,7 @@ export interface Account {
 
 export interface Transaction {
   id: number;
+  user_id: string;
   type: 'income' | 'expense';
   amount: number;
   category: string;

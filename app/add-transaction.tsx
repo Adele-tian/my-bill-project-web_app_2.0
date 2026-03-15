@@ -11,6 +11,7 @@ import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type TransactionType = 'expense' | 'income';
+type CategoryOption = (typeof EXPENSE_CATEGORIES)[number] | (typeof INCOME_CATEGORIES)[number];
 
 export default function AddTransactionScreen() {
   const colorScheme = useColorScheme();
@@ -24,7 +25,7 @@ export default function AddTransactionScreen() {
 
   const [type, setType] = useState<TransactionType>('expense');
   const [amount, setAmount] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState(EXPENSE_CATEGORIES[0]);
+  const [selectedCategory, setSelectedCategory] = useState<CategoryOption>(EXPENSE_CATEGORIES[0]);
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
   const [description, setDescription] = useState('');
   const [showAccountPicker, setShowAccountPicker] = useState(false);
@@ -147,7 +148,11 @@ export default function AddTransactionScreen() {
         </View>
         <View style={[styles.section, { backgroundColor: colors.card }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>分类</Text>
-          <CategoryPicker type={type} selectedCategory={selectedCategory.name} onSelect={(cat) => setSelectedCategory(cat)} />
+          <CategoryPicker
+            type={type}
+            selectedCategory={selectedCategory.name}
+            onSelect={(cat) => setSelectedCategory(cat as CategoryOption)}
+          />
         </View>
         <TouchableOpacity style={[styles.accountSelector, { backgroundColor: colors.card }]} onPress={() => setShowAccountPicker(!showAccountPicker)}>
           <Text style={[styles.accountLabel, { color: colors.textSecondary }]}>账户</Text>

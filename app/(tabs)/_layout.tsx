@@ -5,6 +5,10 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Tabs } from 'expo-router';
 import React from 'react';
 
+type TabIconProps = {
+  color: string;
+};
+
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -27,28 +31,28 @@ export default function TabLayout() {
         name="index"
         options={{
           title: '首页',
-          tabBarIcon: ({ color }) => <IconSymbol size={24} name="house.fill" color={color} />,
+          tabBarIcon: ({ color }: TabIconProps) => <IconSymbol size={24} name="house.fill" color={color} />,
         }}
       />
       <Tabs.Screen
         name="stats"
         options={{
           title: '统计',
-          tabBarIcon: ({ color }) => <IconSymbol size={24} name="chart.bar.fill" color={color} />,
+          tabBarIcon: ({ color }: TabIconProps) => <IconSymbol size={24} name="chart.bar.fill" color={color} />,
         }}
       />
       <Tabs.Screen
         name="wallet"
         options={{
           title: '钱包',
-          tabBarIcon: ({ color }) => <IconSymbol size={24} name="wallet.pass.fill" color={color} />,
+          tabBarIcon: ({ color }: TabIconProps) => <IconSymbol size={24} name="wallet.pass.fill" color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: '我的',
-          tabBarIcon: ({ color }) => <IconSymbol size={24} name="person.fill" color={color} />,
+          tabBarIcon: ({ color }: TabIconProps) => <IconSymbol size={24} name="person.fill" color={color} />,
         }}
       />
     </Tabs>

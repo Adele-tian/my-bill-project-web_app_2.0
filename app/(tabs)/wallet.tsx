@@ -5,7 +5,7 @@ import { Account } from '@/db/insforge/schema';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAccountStore } from '@/store/useAccountStore';
 import { formatCurrency } from '@/utils/format';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { Href, useFocusEffect, useRouter } from 'expo-router';
 import { Plus, Wallet } from 'lucide-react-native';
 import React, { useCallback } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -24,10 +24,12 @@ export default function WalletScreen() {
     }, [])
   );
 
-  const handleAddAccount = () => router.push('/add-account');
+  const handleAddAccount = () => {
+    router.push('/add-account' as Href);
+  };
 
   const handleEditAccount = (account: Account) => {
-    router.push(`/add-account?id=${account.id}`);
+    router.push(`/add-account?id=${account.id}` as Href);
   };
 
   const handleDeleteAccount = async (id: number) => {
@@ -77,6 +79,10 @@ export default function WalletScreen() {
         ) : (
           <View style={styles.emptyWrap}>
             <EmptyState emoji="👆" title="还没有账户" description="点击上方按钮添加第一个账户" />
+            <TouchableOpacity style={[styles.emptyAddButton, { backgroundColor: colors.primary }]} onPress={handleAddAccount}>
+              <Plus size={16} color="#FFFFFF" />
+              <Text style={styles.emptyAddButtonText}>立即添加账户</Text>
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
@@ -100,4 +106,19 @@ const styles = StyleSheet.create({
   accountInfo: { fontSize: 14, marginTop: 16, lineHeight: 20 },
   accountList: { paddingHorizontal: 20, gap: 12 },
   emptyWrap: { margin: 20 },
+  emptyAddButton: {
+    marginTop: 16,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 999,
+  },
+  emptyAddButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
 });

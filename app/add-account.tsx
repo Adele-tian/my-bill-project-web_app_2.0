@@ -8,6 +8,8 @@ import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+type AccountIconOption = (typeof ACCOUNT_ICONS)[number];
+
 export default function AddAccountScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -18,7 +20,7 @@ export default function AddAccountScreen() {
   const { accounts, addAccount, updateAccount } = useAccountStore();
   const [name, setName] = useState('');
   const [balance, setBalance] = useState('');
-  const [selectedIcon, setSelectedIcon] = useState(ACCOUNT_ICONS[0]);
+  const [selectedIcon, setSelectedIcon] = useState<AccountIconOption>(ACCOUNT_ICONS[0]);
   const [isLoading, setIsLoading] = useState(false);
 
   // 编辑模式下加载账户数据
@@ -59,7 +61,8 @@ export default function AddAccountScreen() {
       }
       router.back();
     } catch (error) {
-      Alert.alert('错误', isEditMode ? '更新失败' : '保存失败');
+      const message = (error as Error).message || (isEditMode ? '更新失败' : '保存失败');
+      Alert.alert('错误', message);
     } finally {
       setIsLoading(false);
     }
@@ -94,7 +97,7 @@ export default function AddAccountScreen() {
           <Text style={[styles.label, { color: colors.textSecondary }]}>选择图标</Text>
           <View style={styles.iconGrid}>
             {ACCOUNT_ICONS.map((item) => {
-              const IconComponent = (LucideIcons as any)[item.icon] || LucideIcons.Wallet;
+              const IconComponent = (LucideIcons as any)[item.name] || LucideIcons.Wallet;
               const isSelected = selectedIcon.name === item.name;
               return (
                 <TouchableOpacity key={item.name} style={[styles.iconItem, isSelected && { backgroundColor: colors.primaryLight, borderColor: colors.primary }]} onPress={() => setSelectedIcon(item)}>

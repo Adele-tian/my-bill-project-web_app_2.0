@@ -66,7 +66,7 @@ export default function StatsScreen() {
             <View style={styles.chartContainer}>
               <View style={styles.pieChart}>
                 {categorySummary.map((item, index) => (
-                  <View key={index} style={[styles.pieSlice, { backgroundColor: getCategoryColor(item.category), width: `${item.percent}%` }]} />
+                  <View key={index} style={[styles.pieSlice, { backgroundColor: getCategoryColor(item.category), width: `${item.percent ?? 0}%` }]} />
                 ))}
               </View>
               <View style={styles.legendContainer}>

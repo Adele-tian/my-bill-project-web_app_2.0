@@ -24,10 +24,11 @@ interface TransactionState {
   fetchRecentTransactions: (limit?: number) => Promise<void>;
   fetchSummary: (period?: 'week' | 'month' | 'year') => Promise<void>;
   fetchCategorySummary: (type: 'income' | 'expense', period?: 'week' | 'month' | 'year') => Promise<void>;
-  addTransaction: (transaction: Omit<Transaction, 'id' | 'created_at' | 'account_name'>) => Promise<number>;
-  updateTransaction: (id: number, updates: Partial<Omit<Transaction, 'id' | 'created_at' | 'account_name'>>) => Promise<void>;
+  addTransaction: (transaction: Omit<Transaction, 'id' | 'created_at' | 'account_name' | 'user_id'>) => Promise<number>;
+  updateTransaction: (id: number, updates: Partial<Omit<Transaction, 'id' | 'created_at' | 'account_name' | 'user_id'>>) => Promise<void>;
   removeTransaction: (id: number) => Promise<void>;
   getTransactionById: (id: number) => Promise<Transaction | null>;
+  reset: () => void;
 }
 
 function getDateRange(period?: 'week' | 'month' | 'year'): { start: string; end: string } | undefined {
@@ -152,5 +153,17 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       set({ error: (error as Error).message });
       return null;
     }
+  },
+
+  reset: () => {
+    set({
+      transactions: [],
+      recentTransactions: [],
+      income: 0,
+      expense: 0,
+      categorySummary: [],
+      isLoading: false,
+      error: null,
+    });
   },
 }));
