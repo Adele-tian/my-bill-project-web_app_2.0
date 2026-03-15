@@ -2,9 +2,9 @@ import { Colors } from '@/constants/theme';
 import { Account } from '@/db/insforge/schema';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCurrency } from '@/utils/format';
-import { Banknote, ChevronRight, CreditCard, Edit3, Landmark, PiggyBank, Smartphone, Trash2, Wallet } from 'lucide-react-native';
+import { Banknote, ChevronRight, CreditCard, Edit3, Landmark, PiggyBank, Smartphone, Wallet } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const ICON_MAP: Record<string, React.ComponentType<any>> = {
   'wallet': Wallet,
@@ -25,7 +25,6 @@ interface AccountItemProps {
   account: Account;
   onPress?: () => void;
   onEdit?: (account: Account) => void;
-  onDelete?: (id: number) => void;
   showArrow?: boolean;
   showActions?: boolean;
 }
@@ -34,9 +33,8 @@ export function AccountItem({
   account,
   onPress,
   onEdit,
-  onDelete,
   showArrow = true,
-  showActions = true
+  showActions = true,
 }: AccountItemProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -52,22 +50,6 @@ export function AccountItem({
   const handleEdit = () => {
     setShowMenu(false);
     onEdit?.(account);
-  };
-
-  const handleDelete = () => {
-    setShowMenu(false);
-    Alert.alert(
-      '确认删除',
-      `确定要删除账户"${account.name}"吗？关联的交易记录也会被删除，此操作不可撤销。`,
-      [
-        { text: '取消', style: 'cancel' },
-        {
-          text: '删除',
-          style: 'destructive',
-          onPress: () => onDelete?.(account.id)
-        },
-      ]
-    );
   };
 
   return (
@@ -88,6 +70,16 @@ export function AccountItem({
             <Text style={[styles.balanceText, { color: colors.textSecondary }]}>
               {formatCurrency(account.balance)}
             </Text>
+            {account.status === 'hidden' ? (
+              <View style={[styles.statusChip, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                <Text style={[styles.statusText, { color: colors.textSecondary }]}>已隐藏</Text>
+              </View>
+            ) : null}
+            {account.status === 'archived' ? (
+              <View style={[styles.statusChip, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                <Text style={[styles.statusText, { color: colors.textSecondary }]}>已归档</Text>
+              </View>
+            ) : null}
             {account.note ? (
               <View style={[styles.noteChip, { borderColor: colors.border, backgroundColor: colors.background }]}>
                 <Text style={[styles.noteText, { color: colors.textSecondary }]} numberOfLines={1}>
@@ -111,11 +103,6 @@ export function AccountItem({
             <TouchableOpacity style={styles.actionButton} onPress={handleEdit}>
               <Edit3 size={18} color={colors.primary} />
               <Text style={[styles.actionText, { color: colors.text }]}>编辑</Text>
-            </TouchableOpacity>
-            <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
-            <TouchableOpacity style={styles.actionButton} onPress={handleDelete}>
-              <Trash2 size={18} color={colors.expense} />
-              <Text style={[styles.actionText, { color: colors.expense }]}>删除</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -166,6 +153,15 @@ const styles = StyleSheet.create({
   noteText: {
     fontSize: 12,
   },
+  statusChip: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  statusText: {
+    fontSize: 12,
+  },
   menuOverlay: {
     position: 'absolute',
     top: 0,
@@ -198,9 +194,5 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: 14,
     fontWeight: '500',
-  },
-  actionDivider: {
-    width: 1,
-    marginVertical: 4,
   },
 });

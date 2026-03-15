@@ -6,6 +6,9 @@ create table if not exists public.accounts (
   icon text not null default 'wallet',
   color text not null default '#60A5FA',
   note text not null default '',
+  status text not null default 'active' check (status in ('active', 'hidden', 'archived')),
+  include_in_totals boolean not null default true,
+  archived_at timestamptz,
   created_at timestamptz not null default timezone('utc', now())
 );
 

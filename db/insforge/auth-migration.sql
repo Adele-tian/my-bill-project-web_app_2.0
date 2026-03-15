@@ -4,6 +4,15 @@ alter table public.accounts
 alter table public.accounts
   add column if not exists note text not null default '';
 
+alter table public.accounts
+  add column if not exists status text not null default 'active';
+
+alter table public.accounts
+  add column if not exists include_in_totals boolean not null default true;
+
+alter table public.accounts
+  add column if not exists archived_at timestamptz;
+
 alter table public.transactions
   add column if not exists user_id text;
 

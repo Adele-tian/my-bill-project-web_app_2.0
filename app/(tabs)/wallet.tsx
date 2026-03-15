@@ -6,8 +6,8 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAccountStore } from '@/store/useAccountStore';
 import { formatCurrency } from '@/utils/format';
 import { Href, useFocusEffect, useRouter } from 'expo-router';
-import { Plus, Wallet } from 'lucide-react-native';
-import React, { useCallback } from 'react';
+import { ChevronDown, ChevronUp, Plus, Wallet } from 'lucide-react-native';
+import React, { useCallback, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -15,8 +15,19 @@ export default function WalletScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const router = useRouter();
+  const [showInactiveAccounts, setShowInactiveAccounts] = useState(false);
 
-  const { accounts, totalBalance, fetchAccounts, removeAccount } = useAccountStore();
+  const { accounts, totalBalance, fetchAccounts } = useAccountStore();
+
+  const activeAccounts = useMemo(
+    () => accounts.filter((account) => account.status === 'active'),
+    [accounts]
+  );
+  const inactiveAccounts = useMemo(
+    () => accounts.filter((account) => account.status !== 'active'),
+    [accounts]
+  );
+  const displayedAccounts = showInactiveAccounts ? accounts : activeAccounts;
 
   useFocusEffect(
     useCallback(() => {
@@ -30,10 +41,6 @@ export default function WalletScreen() {
 
   const handleEditAccount = (account: Account) => {
     router.push(`/add-account?id=${account.id}` as Href);
-  };
-
-  const handleDeleteAccount = async (id: number) => {
-    await removeAccount(id);
   };
 
   return (
@@ -61,19 +68,18 @@ export default function WalletScreen() {
             </View>
           </View>
           <Text style={[styles.accountInfo, { color: colors.textSecondary }]}>
-            共 {accounts.length} 个账户，支持现金、银行卡、信用卡等多种类型。
+            当前显示 {displayedAccounts.length} 个账户，共管理 {accounts.length} 个账户。
           </Text>
         </View>
 
-        {accounts.length > 0 ? (
+        {displayedAccounts.length > 0 ? (
           <View style={styles.accountList}>
-            {accounts.map((account) => (
+            {displayedAccounts.map((account) => (
               <AccountItem
                 key={account.id}
                 account={account}
                 onPress={() => handleEditAccount(account)}
                 onEdit={handleEditAccount}
-                onDelete={handleDeleteAccount}
               />
             ))}
           </View>
@@ -86,6 +92,22 @@ export default function WalletScreen() {
             </TouchableOpacity>
           </View>
         )}
+
+        {inactiveAccounts.length > 0 ? (
+          <TouchableOpacity
+            style={[styles.toggleInactiveButton, { borderColor: colors.border, backgroundColor: colors.card }]}
+            onPress={() => setShowInactiveAccounts((value) => !value)}
+          >
+            <Text style={[styles.toggleInactiveText, { color: colors.textSecondary }]}>
+              {showInactiveAccounts ? '收起隐藏与归档账户' : `显示隐藏与归档账户（${inactiveAccounts.length}）`}
+            </Text>
+            {showInactiveAccounts ? (
+              <ChevronUp size={18} color={colors.textSecondary} />
+            ) : (
+              <ChevronDown size={18} color={colors.textSecondary} />
+            )}
+          </TouchableOpacity>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -107,6 +129,21 @@ const styles = StyleSheet.create({
   accountInfo: { fontSize: 14, marginTop: 16, lineHeight: 20 },
   accountList: { paddingHorizontal: 20, gap: 12 },
   emptyWrap: { margin: 20 },
+  toggleInactiveButton: {
+    marginHorizontal: 20,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  toggleInactiveText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
   emptyAddButton: {
     marginTop: 16,
     alignSelf: 'center',

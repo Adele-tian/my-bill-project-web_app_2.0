@@ -20,7 +20,7 @@ export default function AddTransactionScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const isEditMode = !!id;
 
-  const { accounts, fetchAccounts } = useAccountStore();
+  const { selectableAccounts, fetchAccounts } = useAccountStore();
   const { addTransaction, updateTransaction, getTransactionById } = useTransactionStore();
 
   const [type, setType] = useState<TransactionType>('expense');
@@ -44,10 +44,10 @@ export default function AddTransactionScreen() {
 
   // 仅在新建模式下自动选择第一个账户
   useEffect(() => {
-    if (accounts.length > 0 && !selectedAccountId && !isEditMode) {
-      setSelectedAccountId(accounts[0].id);
+    if (selectableAccounts.length > 0 && !selectedAccountId && !isEditMode) {
+      setSelectedAccountId(selectableAccounts[0].id);
     }
-  }, [accounts, isEditMode]);
+  }, [selectableAccounts, isEditMode]);
 
   // 仅在新建模式下，切换类型时重置分类
   useEffect(() => {
@@ -117,7 +117,7 @@ export default function AddTransactionScreen() {
     }
   };
 
-  const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
+  const selectedAccount = selectableAccounts.find((a) => a.id === selectedAccountId);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -163,7 +163,7 @@ export default function AddTransactionScreen() {
         </TouchableOpacity>
         {showAccountPicker && (
           <View style={[styles.accountList, { backgroundColor: colors.card }]}>
-            {accounts.map((account) => (
+            {selectableAccounts.map((account) => (
               <TouchableOpacity key={account.id} style={[styles.accountItem, selectedAccountId === account.id && { backgroundColor: colors.primaryLight }]} onPress={() => { setSelectedAccountId(account.id); setShowAccountPicker(false); }}>
                 <Text style={[styles.accountItemText, { color: colors.text }]}>{account.name}</Text>
               </TouchableOpacity>

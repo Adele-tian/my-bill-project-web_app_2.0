@@ -1,5 +1,7 @@
 // Shared data model definitions for the InsForge-backed app.
 
+export type AccountStatus = 'active' | 'hidden' | 'archived';
+
 export interface Account {
   id: number;
   user_id: string;
@@ -8,6 +10,9 @@ export interface Account {
   icon: string;
   color: string;
   note?: string;
+  status: AccountStatus;
+  include_in_totals: boolean;
+  archived_at?: string | null;
   created_at: string;
 }
 
