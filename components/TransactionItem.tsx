@@ -13,6 +13,7 @@ interface TransactionItemProps {
   onEdit?: (transaction: Transaction) => void;
   onDelete?: (id: number) => void;
   showActions?: boolean;
+  showMetaChips?: boolean;
 }
 
 export function TransactionItem({
@@ -20,7 +21,8 @@ export function TransactionItem({
   onPress,
   onEdit,
   onDelete,
-  showActions = true
+  showActions = true,
+  showMetaChips = false,
 }: TransactionItemProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -76,10 +78,35 @@ export function TransactionItem({
 
         <View style={styles.info}>
           <Text style={[styles.category, { color: colors.text }]}>{transaction.category}</Text>
-          <Text style={[styles.meta, { color: colors.textSecondary }]}>
-            {formatRelativeDate(transaction.date)}
-            {transaction.account_name && ` · ${transaction.account_name}`}
-          </Text>
+          {showMetaChips ? (
+            <View style={styles.metaRow}>
+              <View style={[styles.metaChip, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                <Text style={[styles.metaChipText, { color: colors.textSecondary }]}>
+                  {formatRelativeDate(transaction.date)}
+                </Text>
+              </View>
+              {transaction.account_name ? (
+                <View style={[styles.metaChip, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                  <Text style={[styles.metaChipText, { color: colors.textSecondary }]}>
+                    {transaction.account_name}
+                  </Text>
+                </View>
+              ) : null}
+              {transaction.description ? (
+                <Text
+                  style={[styles.descriptionText, { color: colors.textSecondary }]}
+                  numberOfLines={1}
+                >
+                  {transaction.description}
+                </Text>
+              ) : null}
+            </View>
+          ) : (
+            <Text style={[styles.meta, { color: colors.textSecondary }]}>
+              {formatRelativeDate(transaction.date)}
+              {transaction.account_name && ` · ${transaction.account_name}`}
+            </Text>
+          )}
         </View>
 
         <Text style={[
@@ -137,6 +164,27 @@ const styles = StyleSheet.create({
   meta: {
     fontSize: 12,
     marginTop: 2,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+    flexWrap: 'wrap',
+  },
+  metaChip: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  metaChipText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  descriptionText: {
+    fontSize: 12,
+    flexShrink: 1,
   },
   amount: {
     fontSize: 16,

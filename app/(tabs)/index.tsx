@@ -69,6 +69,7 @@ export default function HomeScreen() {
                   transaction={t}
                   onEdit={handleEditTransaction}
                   onDelete={handleDeleteTransaction}
+                  showMetaChips
                 />
               ))
             ) : (
