@@ -30,6 +30,9 @@ export default function HomeScreen() {
   );
 
   const handleAddTransaction = () => router.push('/add-transaction');
+  const handleTextAiInput = () => router.push('/add-transaction?input=text');
+  const handleVoiceAiInput = () => router.push('/add-transaction?input=voice');
+  const handleCameraAiInput = () => router.push('/add-transaction?input=camera');
 
   const handleEditTransaction = (transaction: Transaction) => {
     router.push(`/add-transaction?id=${transaction.id}`);
@@ -78,7 +81,12 @@ export default function HomeScreen() {
           </View>
         </View>
       </ScrollView>
-      <FloatingActionButton onAddTransaction={handleAddTransaction} />
+      <FloatingActionButton
+        onAddTransaction={handleAddTransaction}
+        onQuickInput={handleTextAiInput}
+        onVoiceInput={handleVoiceAiInput}
+        onCameraInput={handleCameraAiInput}
+      />
     </SafeAreaView>
   );
 }
