@@ -26,7 +26,7 @@ export default function HomeScreen() {
       fetchAccounts();
       fetchRecentTransactions(5);
       fetchSummary();
-    }, [])
+    }, [fetchAccounts, fetchRecentTransactions, fetchSummary])
   );
 
   const handleAddTransaction = () => router.push('/add-transaction');

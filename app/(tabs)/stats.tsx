@@ -28,7 +28,7 @@ export default function StatsScreen() {
     const period = periods[selectedPeriod].value;
     fetchSummary(period);
     fetchCategorySummary('expense', period);
-  }, [selectedPeriod]);
+  }, [fetchCategorySummary, fetchSummary, selectedPeriod]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>

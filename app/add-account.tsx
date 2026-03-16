@@ -47,7 +47,7 @@ export default function AddAccountScreen() {
         setDeleteMode('archive-transfer');
       }
     }
-  }, [id, accounts]);
+  }, [accounts, id, isEditMode]);
 
   useEffect(() => {
     if (!isEditMode || !id) {

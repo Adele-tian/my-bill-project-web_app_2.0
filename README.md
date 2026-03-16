@@ -72,6 +72,41 @@ If you already have historical shared rows, backfill `user_id` before expecting 
 - `.env.local` is loaded automatically so the app can connect to InsForge during local development
 - Recommended Node version is `22` as recorded in `.nvmrc`
 
+## Dev environment bootstrap
+
+If your shell cannot find `node`, `npm`, or `npx`, bootstrap the project environment once:
+
+```bash
+npm run env:bootstrap
+```
+
+Then, for each new terminal session, activate the project environment:
+
+```bash
+source scripts/activate-dev.sh
+```
+
+You can verify the toolchain with:
+
+```bash
+npm run env:doctor
+```
+
+If `Press a` in Expo CLI fails on Android with a `host.exp.exponent` launch error,
+use the stable Android opener:
+
+```bash
+npm run android --port=8081
+```
+
+Replace `8081` with the Metro port shown by Expo, for example `8083`.
+
+If you still want Expo's original Android behavior, use:
+
+```bash
+npm run android:expo
+```
+
 ## iOS troubleshooting
 
 - If Expo prints `Simulator device failed to open exp://... Operation timed out`, first verify the local Simulator service is healthy with `xcrun simctl list devices`

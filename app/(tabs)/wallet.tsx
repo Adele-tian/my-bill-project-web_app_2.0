@@ -32,7 +32,7 @@ export default function WalletScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchAccounts();
-    }, [])
+    }, [fetchAccounts])
   );
 
   const handleAddAccount = () => {

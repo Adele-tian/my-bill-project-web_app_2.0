@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import * as LucideIcons from 'lucide-react-native';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '@/utils/categories';
 import { Colors } from '@/constants/theme';
@@ -90,4 +90,3 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
-

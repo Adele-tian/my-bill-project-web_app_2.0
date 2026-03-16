@@ -29,7 +29,7 @@ export default function ProfileScreen() {
   useEffect(() => {
     fetchAccounts();
     fetchTransactions();
-  }, []);
+  }, [fetchAccounts, fetchTransactions]);
 
   const accountCount = accounts.length;
   const billCount = transactions.length;
