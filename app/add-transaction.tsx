@@ -17,7 +17,7 @@ import { useTransactionStore } from '@/store/useTransactionStore';
 import { getTransactionEntryPreferences, saveTransactionEntryPreferences } from '@/utils/transaction-entry-preferences';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '@/utils/categories';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Camera, CheckCircle2, Mic, Sparkles, Type, X } from 'lucide-react-native';
+import { CheckCircle2, Sparkles, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
@@ -81,12 +81,21 @@ function getAudioFormat(uri: string): 'wav' | 'mp3' | 'aiff' | 'aac' | 'ogg' | '
   return 'm4a';
 }
 
+function buildAiStatusMessage(source: '文字' | '拍照' | '语音', draft: ParsedBillDraft): string {
+  const messages = [`已根据${source}识别结果预填表单，请确认后保存。`];
+  if (draft.warnings?.length) {
+    messages.push(draft.warnings.join(' '));
+  }
+  return messages.join('\n');
+}
+
 export default function AddTransactionScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const router = useRouter();
   const { id, input } = useLocalSearchParams<{ id?: string; input?: AIInputMode }>();
   const isEditMode = !!id;
+  const isQuickInputMode = Boolean(input) && !isEditMode;
 
   const { selectableAccounts, fetchAccounts } = useAccountStore();
   const { addTransaction, updateTransaction, getTransactionById } = useTransactionStore();
@@ -136,31 +145,32 @@ export default function AddTransactionScreen() {
 
   const applyParsedDraft = useCallback((draft: ParsedBillDraft) => {
     const nextType = draft.type === 'income' ? 'income' : 'expense';
-
-    const categories = nextType === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
-    const matchedCategory = categories.find((category) => category.name === draft.category) || categories[0];
-    let nextAccountId = form.selectedAccountId;
-
     const accountNames = selectableAccounts.map((account) => account.name);
-    const matchedAccountName = inferBillAccountName(draft.accountName, accountNames);
-    if (matchedAccountName) {
-      const matchedAccount = selectableAccounts.find((account) => account.name === matchedAccountName);
-      if (matchedAccount) {
-        nextAccountId = matchedAccount.id;
-      }
-    }
 
-    const nextForm = createFormState({
-      ...form,
-      type: nextType,
-      amount: String(draft.amount),
-      description: draft.description || draft.category,
-      entryDate: draft.date || new Date().toISOString(),
-      selectedCategory: matchedCategory,
-      selectedAccountId: nextAccountId,
+    setForm((current) => {
+      const categories = nextType === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+      const matchedCategory = categories.find((category) => category.name === draft.category) || categories[0];
+      let nextAccountId = current.selectedAccountId;
+
+      const matchedAccountName = inferBillAccountName(draft.accountName, accountNames);
+      if (matchedAccountName) {
+        const matchedAccount = selectableAccounts.find((account) => account.name === matchedAccountName);
+        if (matchedAccount) {
+          nextAccountId = matchedAccount.id;
+        }
+      }
+
+      return createFormState({
+        ...current,
+        type: nextType,
+        amount: String(draft.amount),
+        description: draft.description || draft.category,
+        entryDate: draft.date || current.entryDate,
+        selectedCategory: matchedCategory,
+        selectedAccountId: nextAccountId,
+      });
     });
-    setForm(nextForm);
-  }, [form, selectableAccounts]);
+  }, [selectableAccounts]);
 
   const loadTransaction = useCallback(async (transactionId: number) => {
     setIsLoading(true);
@@ -301,7 +311,7 @@ export default function AddTransactionScreen() {
     try {
       const draft = await parseTextBillToDraft(aiPrompt.trim(), getAiContext());
       applyParsedDraft(draft);
-      setAiStatus('已根据文字识别结果预填表单，请确认后保存。');
+      setAiStatus(buildAiStatusMessage('文字', draft));
       setActiveAiPanel(null);
     } catch (error) {
       Alert.alert('识别失败', (error as Error).message);
@@ -334,7 +344,7 @@ export default function AddTransactionScreen() {
       const mimeType = getImageMimeType(asset.uri, asset.mimeType);
       const draft = await parseImageBillToDraft(`data:${mimeType};base64,${base64}`, getAiContext());
       applyParsedDraft(draft);
-      setAiStatus('已根据拍照识别结果预填表单，请确认后保存。');
+      setAiStatus(buildAiStatusMessage('拍照', draft));
       setActiveAiPanel(null);
     } catch (error) {
       Alert.alert('拍照识别失败', (error as Error).message);
@@ -388,7 +398,7 @@ export default function AddTransactionScreen() {
       const format = getAudioFormat(recordedAudioUri);
       const draft = await parseAudioBillToDraft(base64, format, getAiContext());
       applyParsedDraft(draft);
-      setAiStatus('已根据语音识别结果预填表单，请确认后保存。');
+      setAiStatus(buildAiStatusMessage('语音', draft));
       setActiveAiPanel(null);
       setRecordedAudioUri(null);
     } catch (error) {
@@ -452,38 +462,19 @@ export default function AddTransactionScreen() {
           </TouchableOpacity>
         </View>
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
-        {!isEditMode ? (
+        {isQuickInputMode ? (
           <View style={[styles.aiCard, { backgroundColor: colors.card }]}>
             <View style={styles.aiHeader}>
               <Sparkles size={18} color={colors.primary} />
-              <Text style={[styles.aiTitle, { color: colors.text }]}>AI 智能识别</Text>
+              <Text style={[styles.aiTitle, { color: colors.text }]}>快速输入</Text>
             </View>
             <Text style={[styles.aiSubtitle, { color: colors.textSecondary }]}>
-              支持文字账单、拍照票据、语音描述三种输入方式，识别后会自动预填到下面的表单里。
+              {input === 'text'
+                ? '输入一句自然语言账单描述，识别后会自动预填到下面的表单里。'
+                : input === 'voice'
+                  ? '录一段记账语音，识别后会自动预填到下面的表单里。'
+                  : '拍摄账单或票据，识别后会自动预填到下面的表单里。'}
             </Text>
-            <View style={styles.aiActions}>
-              <TouchableOpacity
-                style={[styles.aiActionButton, { borderColor: colors.border, backgroundColor: colors.background }]}
-                onPress={() => setActiveAiPanel(activeAiPanel === 'text' ? null : 'text')}
-              >
-                <Type size={18} color={colors.primary} />
-                <Text style={[styles.aiActionText, { color: colors.text }]}>文字识别</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.aiActionButton, { borderColor: colors.border, backgroundColor: colors.background }]}
-                onPress={() => handleCameraRecognition().catch((error) => Alert.alert('拍照识别失败', (error as Error).message))}
-              >
-                <Camera size={18} color={colors.primary} />
-                <Text style={[styles.aiActionText, { color: colors.text }]}>拍照识别</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.aiActionButton, { borderColor: colors.border, backgroundColor: colors.background }]}
-                onPress={() => setActiveAiPanel(activeAiPanel === 'voice' ? null : 'voice')}
-              >
-                <Mic size={18} color={colors.primary} />
-                <Text style={[styles.aiActionText, { color: colors.text }]}>语音记账</Text>
-              </TouchableOpacity>
-            </View>
             {aiStatus ? (
               <View style={[styles.aiResultCard, { backgroundColor: colors.primaryLight }]}>
                 <Text style={[styles.aiResultText, { color: colors.text }]}>{aiStatus}</Text>

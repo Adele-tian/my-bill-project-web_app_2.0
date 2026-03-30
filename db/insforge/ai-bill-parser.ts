@@ -8,6 +8,7 @@ export type ParsedBillDraft = {
   description: string;
   date?: string | null;
   accountName?: string | null;
+  warnings?: string[];
 };
 
 type ParseContext = {
@@ -25,6 +26,24 @@ const CATEGORY_NAMES = {
   expense: EXPENSE_CATEGORIES.map((category) => category.name),
   income: INCOME_CATEGORIES.map((category) => category.name),
 };
+
+function normalizeIsoDate(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed.toISOString();
+}
 
 function buildPrompt(context: ParseContext): string {
   return [
@@ -51,29 +70,58 @@ function extractJsonObject(text: string): ParsedBillDraft {
   const lastBrace = withoutFence.lastIndexOf('}');
   const jsonText = firstBrace >= 0 && lastBrace >= 0 ? withoutFence.slice(firstBrace, lastBrace + 1) : withoutFence;
   const parsed = JSON.parse(jsonText) as Partial<ParsedBillDraft>;
+  const warnings: string[] = [];
 
   if (!parsed.type || !parsed.amount || !parsed.category) {
     throw new Error('AI 返回的账单信息不完整，请重试。');
   }
 
-  const type = parsed.type === 'income' ? 'income' : 'expense';
   const amount = Number(parsed.amount);
   if (!Number.isFinite(amount) || amount <= 0) {
     throw new Error('AI 未能识别出有效金额，请重试。');
   }
 
+  const rawType = typeof parsed.type === 'string' ? parsed.type.trim().toLowerCase() : '';
+  const rawCategory = String(parsed.category).trim();
+  const expenseCategoryNames: string[] = [...CATEGORY_NAMES.expense];
+  const incomeCategoryNames: string[] = [...CATEGORY_NAMES.income];
+  const isKnownExpenseCategory = expenseCategoryNames.includes(rawCategory);
+  const isKnownIncomeCategory = incomeCategoryNames.includes(rawCategory);
+
+  let type: 'expense' | 'income';
+  if (rawType === 'expense' || rawType === 'income') {
+    type = rawType;
+  } else if (isKnownIncomeCategory) {
+    type = 'income';
+    warnings.push(`AI 返回了未识别的类型“${String(parsed.type)}”，已按收入处理。`);
+  } else if (isKnownExpenseCategory) {
+    type = 'expense';
+    warnings.push(`AI 返回了未识别的类型“${String(parsed.type)}”，已按支出处理。`);
+  } else {
+    throw new Error('AI 未能识别出有效收支类型，请重试。');
+  }
+
   const allowedCategories: string[] = [...(type === 'income' ? CATEGORY_NAMES.income : CATEGORY_NAMES.expense)];
-  const category = allowedCategories.includes(String(parsed.category))
-    ? String(parsed.category)
-    : allowedCategories[0];
+  let category = rawCategory;
+  if (!allowedCategories.includes(category)) {
+    const fallbackCategory = allowedCategories.includes('其他') ? '其他' : allowedCategories[0];
+    category = fallbackCategory;
+    warnings.push(`AI 返回了未识别的分类“${rawCategory}”，已改为“${fallbackCategory}”，请确认。`);
+  }
+
+  const normalizedDate = normalizeIsoDate(parsed.date);
+  if (parsed.date && !normalizedDate) {
+    warnings.push(`AI 返回的日期“${String(parsed.date)}”无法识别，已保留当前日期。`);
+  }
 
   return {
     type,
     amount,
     category,
     description: String(parsed.description || category),
-    date: parsed.date ? String(parsed.date) : null,
+    date: normalizedDate,
     accountName: parsed.accountName ? String(parsed.accountName) : null,
+    warnings,
   };
 }
 

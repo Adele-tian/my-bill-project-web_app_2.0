@@ -1,6 +1,6 @@
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Camera, Edit3, FileText, Mic, Plus, X } from 'lucide-react-native';
+import { Edit3, FileText, Plus, X } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -14,23 +14,17 @@ interface FABAction {
 interface FloatingActionButtonProps {
   onAddTransaction?: () => void;
   onQuickInput?: () => void;
-  onVoiceInput?: () => void;
-  onCameraInput?: () => void;
 }
 
 export function FloatingActionButton({
   onAddTransaction,
   onQuickInput,
-  onVoiceInput,
-  onCameraInput,
 }: FloatingActionButtonProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [isOpen, setIsOpen] = useState(false);
 
   const actions: FABAction[] = [
-    { icon: Camera, label: '拍照识别', color: '#FBBF24', onPress: onCameraInput || (() => {}) },
-    { icon: Mic, label: '语音记账', color: '#34D399', onPress: onVoiceInput || (() => {}) },
     { icon: Edit3, label: '快速输入', color: '#60A5FA', onPress: onQuickInput || (() => {}) },
     { icon: FileText, label: '记一笔', color: '#F472B6', onPress: onAddTransaction || (() => {}) },
   ];
@@ -155,4 +149,3 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
 });
-
