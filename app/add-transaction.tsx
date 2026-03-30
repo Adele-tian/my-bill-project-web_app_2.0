@@ -1,4 +1,5 @@
 import { CategoryPicker } from '@/components/CategoryPicker';
+import { DateQuickPicker } from '@/components/DateQuickPicker';
 import { Colors } from '@/constants/theme';
 import {
   inferBillAccountName,
@@ -13,14 +14,18 @@ import * as ImagePicker from 'expo-image-picker';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAccountStore } from '@/store/useAccountStore';
 import { useTransactionStore } from '@/store/useTransactionStore';
+import { getTransactionEntryPreferences, saveTransactionEntryPreferences } from '@/utils/transaction-entry-preferences';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '@/utils/categories';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Camera, ChevronDown, Mic, Sparkles, Type, X } from 'lucide-react-native';
+import { Camera, CheckCircle2, Mic, Sparkles, Type, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -31,6 +36,30 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 type TransactionType = 'expense' | 'income';
 type CategoryOption = (typeof EXPENSE_CATEGORIES)[number] | (typeof INCOME_CATEGORIES)[number];
 type AIInputMode = 'text' | 'camera' | 'voice';
+type FormState = {
+  type: TransactionType;
+  amount: string;
+  selectedCategory: CategoryOption;
+  selectedAccountId: number | null;
+  description: string;
+  entryDate: string;
+};
+
+function getDefaultCategory(type: TransactionType): CategoryOption {
+  return type === 'income' ? INCOME_CATEGORIES[0] : EXPENSE_CATEGORIES[0];
+}
+
+function createFormState(overrides: Partial<FormState> = {}): FormState {
+  const nextType = overrides.type ?? 'expense';
+  return {
+    type: nextType,
+    amount: overrides.amount ?? '',
+    selectedCategory: overrides.selectedCategory ?? getDefaultCategory(nextType),
+    selectedAccountId: overrides.selectedAccountId ?? null,
+    description: overrides.description ?? '',
+    entryDate: overrides.entryDate ?? new Date().toISOString(),
+  };
+}
 
 function getImageMimeType(uri: string, fallback?: string | null): string {
   if (fallback) return fallback;
@@ -62,14 +91,16 @@ export default function AddTransactionScreen() {
   const { selectableAccounts, fetchAccounts } = useAccountStore();
   const { addTransaction, updateTransaction, getTransactionById } = useTransactionStore();
 
-  const [type, setType] = useState<TransactionType>('expense');
-  const [amount, setAmount] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<CategoryOption>(EXPENSE_CATEGORIES[0]);
-  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
-  const [description, setDescription] = useState('');
-  const [showAccountPicker, setShowAccountPicker] = useState(false);
+  const amountInputRef = useRef<TextInput | null>(null);
+  const autoHandledInputRef = useRef<string | null>(null);
+  const initializedCreateFormRef = useRef(false);
+
+  const [initialValues, setInitialValues] = useState<FormState | null>(null);
+  const [form, setForm] = useState<FormState>(() => createFormState());
   const [isLoading, setIsLoading] = useState(false);
-  const [entryDate, setEntryDate] = useState(new Date().toISOString());
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [saveNotice, setSaveNotice] = useState('');
+  const [keepEntering, setKeepEntering] = useState(!isEditMode);
 
   const [activeAiPanel, setActiveAiPanel] = useState<AIInputMode | null>(null);
   const [aiPrompt, setAiPrompt] = useState('');
@@ -78,11 +109,18 @@ export default function AddTransactionScreen() {
 
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [recordedAudioUri, setRecordedAudioUri] = useState<string | null>(null);
-  const autoHandledInputRef = useRef<string | null>(null);
 
   useEffect(() => {
     fetchAccounts();
   }, [fetchAccounts]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      amountInputRef.current?.focus();
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -98,39 +136,49 @@ export default function AddTransactionScreen() {
 
   const applyParsedDraft = useCallback((draft: ParsedBillDraft) => {
     const nextType = draft.type === 'income' ? 'income' : 'expense';
-    setType(nextType);
-    setAmount(String(draft.amount));
-    setDescription(draft.description || draft.category);
-    setEntryDate(draft.date || new Date().toISOString());
 
     const categories = nextType === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
     const matchedCategory = categories.find((category) => category.name === draft.category) || categories[0];
-    setSelectedCategory(matchedCategory);
+    let nextAccountId = form.selectedAccountId;
 
     const accountNames = selectableAccounts.map((account) => account.name);
     const matchedAccountName = inferBillAccountName(draft.accountName, accountNames);
     if (matchedAccountName) {
       const matchedAccount = selectableAccounts.find((account) => account.name === matchedAccountName);
       if (matchedAccount) {
-        setSelectedAccountId(matchedAccount.id);
+        nextAccountId = matchedAccount.id;
       }
     }
-  }, [selectableAccounts]);
+
+    const nextForm = createFormState({
+      ...form,
+      type: nextType,
+      amount: String(draft.amount),
+      description: draft.description || draft.category,
+      entryDate: draft.date || new Date().toISOString(),
+      selectedCategory: matchedCategory,
+      selectedAccountId: nextAccountId,
+    });
+    setForm(nextForm);
+  }, [form, selectableAccounts]);
 
   const loadTransaction = useCallback(async (transactionId: number) => {
     setIsLoading(true);
     try {
       const transaction = await getTransactionById(transactionId);
       if (transaction) {
-        setType(transaction.type);
-        setAmount(transaction.amount.toString());
-        setSelectedAccountId(transaction.account_id);
-        setDescription(transaction.description);
-        setEntryDate(transaction.date);
-
         const categories = transaction.type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
         const category = categories.find((item) => item.name === transaction.category) || categories[0];
-        setSelectedCategory(category);
+        const nextInitialValues = createFormState({
+          type: transaction.type,
+          amount: transaction.amount.toString(),
+          selectedAccountId: transaction.account_id,
+          description: transaction.description,
+          entryDate: transaction.date,
+          selectedCategory: category,
+        });
+        setInitialValues(nextInitialValues);
+        setForm(nextInitialValues);
       }
     } catch {
       Alert.alert('错误', '加载交易记录失败');
@@ -139,41 +187,107 @@ export default function AddTransactionScreen() {
     }
   }, [getTransactionById]);
 
+  const initializeCreateForm = useCallback(() => {
+    if (isEditMode || initializedCreateFormRef.current || selectableAccounts.length === 0) {
+      return;
+    }
+
+    const preferences = getTransactionEntryPreferences();
+    const defaultType = preferences.lastType;
+    const defaultAccount =
+      selectableAccounts.find((account) => account.id === preferences.lastAccountId) ?? selectableAccounts[0];
+    const nextInitialValues = createFormState({
+      type: defaultType,
+      selectedCategory: getDefaultCategory(defaultType),
+      selectedAccountId: defaultAccount?.id ?? null,
+    });
+
+    initializedCreateFormRef.current = true;
+    setInitialValues(nextInitialValues);
+    setForm(nextInitialValues);
+  }, [isEditMode, selectableAccounts]);
+
+  const updateForm = useCallback((updater: Partial<FormState> | ((current: FormState) => FormState)) => {
+    setForm((current) => {
+      if (typeof updater === 'function') {
+        return updater(current);
+      }
+
+      return createFormState({ ...current, ...updater });
+    });
+  }, []);
+
+  const isSaveDisabled = !form.amount || Number.parseFloat(form.amount) <= 0 || !form.selectedAccountId || isSubmitting || isLoading || isAiLoading;
+
+  const handleQuickReset = useCallback(() => {
+    setForm((current) =>
+      createFormState({
+        type: current.type,
+        selectedCategory: current.selectedCategory,
+        selectedAccountId: current.selectedAccountId,
+        entryDate: current.entryDate,
+        amount: '',
+        description: '',
+      })
+    );
+    setAiStatus('');
+    setAiPrompt('');
+    setRecordedAudioUri(null);
+    setActiveAiPanel(null);
+    requestAnimationFrame(() => amountInputRef.current?.focus());
+  }, []);
+
   const handleSave = async () => {
-    if (!amount || parseFloat(amount) <= 0) {
-      Alert.alert('提示', '请输入有效金额');
+    if (isSaveDisabled) {
+      Alert.alert('提示', !form.amount || Number.parseFloat(form.amount) <= 0 ? '请输入有效金额' : '请选择账户');
       return;
     }
-    if (!selectedAccountId) {
-      Alert.alert('提示', '请选择账户');
-      return;
-    }
+
+    setIsSubmitting(true);
+    setSaveNotice('');
 
     try {
       if (isEditMode && id) {
         await updateTransaction(parseInt(id), {
-          type,
-          amount: parseFloat(amount),
-          category: selectedCategory.name,
-          category_icon: selectedCategory.icon,
-          account_id: selectedAccountId,
-          date: entryDate || new Date().toISOString(),
-          description: description || selectedCategory.name,
+          type: form.type,
+          amount: parseFloat(form.amount),
+          category: form.selectedCategory.name,
+          category_icon: form.selectedCategory.icon,
+          account_id: form.selectedAccountId!,
+          date: form.entryDate || new Date().toISOString(),
+          description: form.description || form.selectedCategory.name,
         });
+        saveTransactionEntryPreferences({
+          lastAccountId: form.selectedAccountId,
+          lastType: form.type,
+        });
+        router.replace('/');
       } else {
         await addTransaction({
-          type,
-          amount: parseFloat(amount),
-          category: selectedCategory.name,
-          category_icon: selectedCategory.icon,
-          account_id: selectedAccountId,
-          date: entryDate || new Date().toISOString(),
-          description: description || selectedCategory.name,
+          type: form.type,
+          amount: parseFloat(form.amount),
+          category: form.selectedCategory.name,
+          category_icon: form.selectedCategory.icon,
+          account_id: form.selectedAccountId!,
+          date: form.entryDate || new Date().toISOString(),
+          description: form.description || form.selectedCategory.name,
         });
+        saveTransactionEntryPreferences({
+          lastAccountId: form.selectedAccountId,
+          lastType: form.type,
+        });
+
+        if (keepEntering) {
+          setSaveNotice('已保存，继续下一笔');
+          handleQuickReset();
+        } else {
+          router.replace('/');
+        }
       }
-      router.replace('/');
     } catch {
       Alert.alert('错误', isEditMode ? '更新失败' : '保存失败');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -284,7 +398,7 @@ export default function AddTransactionScreen() {
     }
   };
 
-  const selectedAccount = selectableAccounts.find((account) => account.id === selectedAccountId);
+  const selectedAccount = selectableAccounts.find((account) => account.id === form.selectedAccountId);
 
   useEffect(() => {
     if (isEditMode && id) {
@@ -293,16 +407,8 @@ export default function AddTransactionScreen() {
   }, [id, isEditMode, loadTransaction]);
 
   useEffect(() => {
-    if (selectableAccounts.length > 0 && !selectedAccountId && !isEditMode) {
-      setSelectedAccountId(selectableAccounts[0].id);
-    }
-  }, [selectableAccounts, isEditMode, selectedAccountId]);
-
-  useEffect(() => {
-    if (!isEditMode) {
-      setSelectedCategory((type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES)[0]);
-    }
-  }, [type, isEditMode]);
+    initializeCreateForm();
+  }, [initializeCreateForm]);
 
   useEffect(() => {
     if (!input || isEditMode || autoHandledInputRef.current === input) {
@@ -325,20 +431,27 @@ export default function AddTransactionScreen() {
     });
   }, [handleCameraRecognition, input, isEditMode]);
 
+  const activeCategories = form.type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  const validationMessage = !form.amount || Number.parseFloat(form.amount) <= 0 ? '请输入有效金额' : !form.selectedAccountId ? '请选择账户' : '';
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <X size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.text }]}>{isEditMode ? '编辑交易' : '记一笔'}</Text>
-        <TouchableOpacity onPress={handleSave} disabled={isLoading || isAiLoading}>
-          <Text style={[styles.saveBtn, { color: isLoading || isAiLoading ? colors.textSecondary : colors.primary }]}>
-            {isLoading ? '加载中...' : '保存'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <X size={24} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={[styles.title, { color: colors.text }]}>{isEditMode ? '编辑交易' : '记一笔'}</Text>
+          <TouchableOpacity onPress={handleSave} disabled={isSaveDisabled}>
+            <Text style={[styles.saveBtn, { color: isSaveDisabled ? colors.textSecondary : colors.primary }]}>
+              {isLoading ? '加载中...' : isSubmitting ? '保存中...' : '保存'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
         {!isEditMode ? (
           <View style={[styles.aiCard, { backgroundColor: colors.card }]}>
             <View style={styles.aiHeader}>
@@ -432,86 +545,157 @@ export default function AddTransactionScreen() {
 
         <View style={styles.typeSelector}>
           <TouchableOpacity
-            style={[styles.typeBtn, type === 'expense' && { backgroundColor: colors.expense }]}
-            onPress={() => setType('expense')}
+            style={[styles.typeBtn, form.type === 'expense' && { backgroundColor: colors.expense }]}
+            onPress={() =>
+              updateForm((current) =>
+                createFormState({
+                  ...current,
+                  type: 'expense',
+                  selectedCategory: current.type === 'expense' ? current.selectedCategory : EXPENSE_CATEGORIES[0],
+                })
+              )
+            }
           >
-            <Text style={[styles.typeText, { color: type === 'expense' ? '#FFF' : colors.textSecondary }]}>支出</Text>
+            <Text style={[styles.typeText, { color: form.type === 'expense' ? '#FFF' : colors.textSecondary }]}>支出</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.typeBtn, type === 'income' && { backgroundColor: colors.income }]}
-            onPress={() => setType('income')}
+            style={[styles.typeBtn, form.type === 'income' && { backgroundColor: colors.income }]}
+            onPress={() =>
+              updateForm((current) =>
+                createFormState({
+                  ...current,
+                  type: 'income',
+                  selectedCategory: current.type === 'income' ? current.selectedCategory : INCOME_CATEGORIES[0],
+                })
+              )
+            }
           >
-            <Text style={[styles.typeText, { color: type === 'income' ? '#FFF' : colors.textSecondary }]}>收入</Text>
+            <Text style={[styles.typeText, { color: form.type === 'income' ? '#FFF' : colors.textSecondary }]}>收入</Text>
           </TouchableOpacity>
         </View>
         <View style={[styles.amountCard, { backgroundColor: colors.card }]}>
           <Text style={[styles.amountLabel, { color: colors.textSecondary }]}>金额</Text>
           <View style={styles.amountRow}>
-            <Text style={[styles.currency, { color: type === 'expense' ? colors.expense : colors.income }]}>¥</Text>
+            <Text style={[styles.currency, { color: form.type === 'expense' ? colors.expense : colors.income }]}>¥</Text>
             <TextInput
+              ref={amountInputRef}
               style={[styles.amountInput, { color: colors.text }]}
               placeholder="0.00"
               placeholderTextColor={colors.textSecondary}
               keyboardType="decimal-pad"
-              value={amount}
-              onChangeText={setAmount}
+              value={form.amount}
+              onChangeText={(value) => updateForm({ amount: value.replace(/[^0-9.]/g, '') })}
+              returnKeyType="done"
             />
           </View>
         </View>
         <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>账户</Text>
+          <View style={styles.optionGrid}>
+            {selectableAccounts.map((account) => {
+              const isSelected = form.selectedAccountId === account.id;
+              return (
+                <TouchableOpacity
+                  key={account.id}
+                  style={[
+                    styles.optionChip,
+                    {
+                      backgroundColor: isSelected ? colors.primaryLight : colors.background,
+                      borderColor: isSelected ? colors.primary : colors.border,
+                    },
+                  ]}
+                  onPress={() => updateForm({ selectedAccountId: account.id })}
+                >
+                  <Text style={[styles.optionChipText, { color: isSelected ? colors.primary : colors.text }]}>
+                    {account.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>日期</Text>
+          <DateQuickPicker value={form.entryDate} onChange={(entryDate) => updateForm({ entryDate })} />
+        </View>
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>分类</Text>
           <CategoryPicker
-            type={type}
-            selectedCategory={selectedCategory.name}
-            onSelect={(category) => setSelectedCategory(category as CategoryOption)}
+            type={form.type}
+            selectedCategory={form.selectedCategory.name}
+            onSelect={(category) => updateForm({ selectedCategory: category as CategoryOption })}
+            compact
           />
+          <View style={styles.quickCategoryRow}>
+            {activeCategories.map((category) => {
+              const isSelected = form.selectedCategory.name === category.name;
+              return (
+                <TouchableOpacity
+                  key={category.name}
+                  style={[
+                    styles.quickCategoryChip,
+                    {
+                      backgroundColor: isSelected ? `${category.color}20` : colors.background,
+                      borderColor: isSelected ? category.color : colors.border,
+                    },
+                  ]}
+                  onPress={() => updateForm({ selectedCategory: category })}
+                >
+                  <Text style={[styles.quickCategoryText, { color: isSelected ? category.color : colors.textSecondary }]}>
+                    {category.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
-        <TouchableOpacity
-          style={[styles.accountSelector, { backgroundColor: colors.card }]}
-          onPress={() => setShowAccountPicker(!showAccountPicker)}
-        >
-          <Text style={[styles.accountLabel, { color: colors.textSecondary }]}>账户</Text>
-          <View style={styles.accountValue}>
-            <Text style={[styles.accountName, { color: colors.text }]}>{selectedAccount?.name || '选择账户'}</Text>
-            <ChevronDown size={20} color={colors.textSecondary} />
-          </View>
-        </TouchableOpacity>
-        {showAccountPicker ? (
-          <View style={[styles.accountList, { backgroundColor: colors.card }]}>
-            {selectableAccounts.map((account) => (
-              <TouchableOpacity
-                key={account.id}
-                style={[styles.accountItem, selectedAccountId === account.id && { backgroundColor: colors.primaryLight }]}
-                onPress={() => {
-                  setSelectedAccountId(account.id);
-                  setShowAccountPicker(false);
-                }}
-              >
-                <Text style={[styles.accountItemText, { color: colors.text }]}>{account.name}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ) : null}
         <View style={[styles.section, { backgroundColor: colors.card }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>备注</Text>
           <TextInput
             style={[styles.descInput, { color: colors.text, borderColor: colors.border }]}
             placeholder="添加备注..."
             placeholderTextColor={colors.textSecondary}
-            value={description}
-            onChangeText={setDescription}
+            value={form.description}
+            onChangeText={(description) => updateForm({ description })}
           />
         </View>
-      </ScrollView>
+        {!isEditMode ? (
+          <View style={[styles.section, { backgroundColor: colors.card }]}>
+            <View style={styles.keepEnteringRow}>
+              <View style={styles.keepEnteringTextWrap}>
+                <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 4 }]}>连续记账</Text>
+                <Text style={[styles.keepEnteringHint, { color: colors.textSecondary }]}>
+                  保存后保留账户、类型、日期和当前分类，直接录下一笔。
+                </Text>
+              </View>
+              <Switch value={keepEntering} onValueChange={setKeepEntering} trackColor={{ true: colors.primary, false: colors.border }} />
+            </View>
+          </View>
+        ) : null}
+        {saveNotice ? (
+          <View style={[styles.noticeCard, { backgroundColor: colors.primaryLight }]}>
+            <CheckCircle2 size={18} color={colors.primary} />
+            <Text style={[styles.noticeText, { color: colors.text }]}>{saveNotice}</Text>
+          </View>
+        ) : null}
+        <View style={styles.footer}>
+          <Text style={[styles.footerText, { color: validationMessage ? colors.expense : colors.textSecondary }]}>
+            {validationMessage || `当前账户：${selectedAccount?.name ?? '未选择'}${initialValues ? '' : '，正在准备默认值...'}`}
+          </Text>
+        </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  flex: { flex: 1 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16 },
   title: { fontSize: 18, fontWeight: '600' },
   saveBtn: { fontSize: 16, fontWeight: '600' },
+  scrollContent: { paddingBottom: 32 },
   aiCard: { marginHorizontal: 20, marginBottom: 20, borderRadius: 20, padding: 16, gap: 12 },
   aiHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   aiTitle: { fontSize: 16, fontWeight: '700' },
@@ -567,12 +751,26 @@ const styles = StyleSheet.create({
   amountInput: { flex: 1, fontSize: 32, fontWeight: 'bold' },
   section: { marginHorizontal: 20, borderRadius: 16, padding: 16, marginBottom: 16 },
   sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
-  accountSelector: { marginHorizontal: 20, borderRadius: 16, padding: 16, marginBottom: 16 },
-  accountLabel: { fontSize: 14 },
-  accountValue: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
-  accountName: { fontSize: 16, fontWeight: '500' },
-  accountList: { marginHorizontal: 20, borderRadius: 16, marginBottom: 16, overflow: 'hidden' },
-  accountItem: { padding: 16 },
-  accountItemText: { fontSize: 16 },
+  optionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  optionChip: { borderRadius: 999, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 10 },
+  optionChipText: { fontSize: 14, fontWeight: '600' },
+  quickCategoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
+  quickCategoryChip: { borderRadius: 999, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8 },
+  quickCategoryText: { fontSize: 13, fontWeight: '600' },
   descInput: { borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 16 },
+  keepEnteringRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16 },
+  keepEnteringTextWrap: { flex: 1 },
+  keepEnteringHint: { fontSize: 13, lineHeight: 19 },
+  noticeCard: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderRadius: 16,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  noticeText: { flex: 1, fontSize: 14, fontWeight: '600' },
+  footer: { paddingHorizontal: 20, paddingTop: 4 },
+  footerText: { fontSize: 13, lineHeight: 18 },
 });

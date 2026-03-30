@@ -6,7 +6,7 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NODE_VERSION="$(tr -d '[:space:]' < "$PROJECT_ROOT/.nvmrc")"
 NODE_BIN_DIR="$HOME/.nvm/versions/node/v$NODE_VERSION/bin"
 
-export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+export PATH="$NODE_BIN_DIR:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 if [[ -s "$HOME/.nvm/nvm.sh" ]]; then
   # shellcheck disable=SC1090

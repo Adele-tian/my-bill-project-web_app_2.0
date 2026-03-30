@@ -9,12 +9,16 @@ interface CategoryPickerProps {
   type: 'income' | 'expense';
   selectedCategory: string;
   onSelect: (category: { name: string; icon: string; color: string }) => void;
+  compact?: boolean;
 }
 
-export function CategoryPicker({ type, selectedCategory, onSelect }: CategoryPickerProps) {
+export function CategoryPicker({ type, selectedCategory, onSelect, compact = false }: CategoryPickerProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  const quickCategories = compact ? categories.slice(0, Math.min(categories.length, 6)) : categories;
+  const selectedExistsInQuickList = quickCategories.some((category) => category.name === selectedCategory);
+  const visibleCategories = compact && selectedExistsInQuickList ? quickCategories : compact ? [categories.find((category) => category.name === selectedCategory) ?? categories[0], ...quickCategories.filter((category) => category.name !== selectedCategory)] : categories;
 
   // 将 icon 名称转换为组件名
   const getIconComponent = (iconName: string) => {
@@ -29,7 +33,7 @@ export function CategoryPicker({ type, selectedCategory, onSelect }: CategoryPic
     <View style={styles.container}>
       <Text style={[styles.title, { color: colors.text }]}>选择类别</Text>
       <View style={styles.grid}>
-        {categories.map((category) => {
+        {visibleCategories.map((category) => {
           const IconComponent = getIconComponent(category.icon);
           const isSelected = selectedCategory === category.name;
           

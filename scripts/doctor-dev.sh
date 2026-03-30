@@ -6,7 +6,7 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NODE_VERSION="$(tr -d '[:space:]' < "$PROJECT_ROOT/.nvmrc")"
 NODE_BIN_DIR="$HOME/.nvm/versions/node/v$NODE_VERSION/bin"
 
-export PATH="/opt/homebrew/bin:/usr/local/bin:$NODE_BIN_DIR:$PATH"
+export PATH="$NODE_BIN_DIR:/opt/homebrew/bin:/usr/local/bin:$PATH"
 export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
 export ANDROID_SDK_ROOT="$ANDROID_HOME"
 
