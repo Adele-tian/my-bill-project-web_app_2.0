@@ -1,6 +1,6 @@
 import * as db from '@/db/insforge/database';
 import { Transaction } from '@/db/insforge/schema';
-import { endOfMonth, endOfWeek, endOfYear, format, startOfMonth, startOfWeek, startOfYear } from 'date-fns';
+import { endOfDay, endOfMonth, endOfYear, format, startOfMonth, startOfYear, startOfDay, subDays } from 'date-fns';
 import { create } from 'zustand';
 
 interface CategorySummary {
@@ -10,20 +10,38 @@ interface CategorySummary {
   percent?: number;
 }
 
+interface PeriodSummary {
+  income: number;
+  expense: number;
+  net: number;
+}
+
+interface TrendSummaryItem {
+  label: string;
+  income: number;
+  expense: number;
+}
+
+type SummaryPeriod = 'week' | 'month' | 'year';
+
 interface TransactionState {
   transactions: Transaction[];
   recentTransactions: Transaction[];
   income: number;
   expense: number;
   categorySummary: CategorySummary[];
+  periodSummary: PeriodSummary;
+  trendSummary: TrendSummaryItem[];
   isLoading: boolean;
   error: string | null;
 
   // Actions
   fetchTransactions: () => Promise<void>;
   fetchRecentTransactions: (limit?: number) => Promise<void>;
-  fetchSummary: (period?: 'week' | 'month' | 'year') => Promise<void>;
-  fetchCategorySummary: (type: 'income' | 'expense', period?: 'week' | 'month' | 'year') => Promise<void>;
+  fetchSummary: (period?: SummaryPeriod) => Promise<void>;
+  fetchCategorySummary: (type: 'income' | 'expense', period?: SummaryPeriod) => Promise<void>;
+  fetchPeriodSummary: (period: SummaryPeriod) => Promise<void>;
+  fetchTrendSummary: (period: SummaryPeriod) => Promise<void>;
   addTransaction: (transaction: Omit<Transaction, 'id' | 'created_at' | 'account_name' | 'user_id'>) => Promise<number>;
   updateTransaction: (id: number, updates: Partial<Omit<Transaction, 'id' | 'created_at' | 'account_name' | 'user_id'>>) => Promise<void>;
   removeTransaction: (id: number) => Promise<void>;
@@ -31,19 +49,19 @@ interface TransactionState {
   reset: () => void;
 }
 
-function getDateRange(period?: 'week' | 'month' | 'year'): { start: string; end: string } | undefined {
+function getDateRange(period?: SummaryPeriod): { start: string; end: string } | undefined {
   if (!period) return undefined;
   const now = new Date();
   let start: Date, end: Date;
   
   switch (period) {
     case 'week':
-      start = startOfWeek(now, { weekStartsOn: 1 });
-      end = endOfWeek(now, { weekStartsOn: 1 });
+      start = startOfDay(subDays(now, 6));
+      end = endOfDay(now);
       break;
     case 'month':
       start = startOfMonth(now);
-      end = endOfMonth(now);
+      end = endOfDay(now);
       break;
     case 'year':
       start = startOfYear(now);
@@ -63,6 +81,12 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
   income: 0,
   expense: 0,
   categorySummary: [],
+  periodSummary: {
+    income: 0,
+    expense: 0,
+    net: 0,
+  },
+  trendSummary: [],
   isLoading: false,
   error: null,
 
@@ -105,6 +129,24 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         percent: total > 0 ? Math.round((item.total / total) * 100) : 0,
       }));
       set({ categorySummary });
+    } catch (error) {
+      set({ error: (error as Error).message });
+    }
+  },
+
+  fetchPeriodSummary: async (period) => {
+    try {
+      const periodSummary = await db.getPeriodSummary(period);
+      set({ periodSummary });
+    } catch (error) {
+      set({ error: (error as Error).message });
+    }
+  },
+
+  fetchTrendSummary: async (period) => {
+    try {
+      const trendSummary = await db.getTrendSummary(period);
+      set({ trendSummary });
     } catch (error) {
       set({ error: (error as Error).message });
     }
@@ -162,6 +204,12 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       income: 0,
       expense: 0,
       categorySummary: [],
+      periodSummary: {
+        income: 0,
+        expense: 0,
+        net: 0,
+      },
+      trendSummary: [],
       isLoading: false,
       error: null,
     });

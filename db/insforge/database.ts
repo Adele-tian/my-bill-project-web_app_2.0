@@ -1,4 +1,16 @@
 import { assertInsForgeConfigured, insforge } from '@/db/insforge/client';
+import {
+  eachDayOfInterval,
+  eachMonthOfInterval,
+  endOfDay,
+  endOfMonth,
+  endOfYear,
+  format,
+  startOfDay,
+  startOfMonth,
+  startOfYear,
+  subDays,
+} from 'date-fns';
 
 import { Account, AccountStatus, Transaction } from './schema';
 
@@ -20,6 +32,17 @@ type AccountInput = {
 type TransactionInput = Omit<Transaction, 'id' | 'created_at' | 'account_name' | 'user_id'>;
 type TransactionUpdate = Partial<TransactionInput>;
 type AccountUpdate = Partial<AccountInput>;
+export type SummaryPeriod = 'week' | 'month' | 'year';
+export type PeriodSummary = {
+  income: number;
+  expense: number;
+  net: number;
+};
+export type TrendSummaryItem = {
+  label: string;
+  income: number;
+  expense: number;
+};
 
 export type AccountRetirementMode = 'hide' | 'archive-transfer' | 'delete';
 
@@ -46,18 +69,54 @@ function sortTransactions(transactions: Transaction[]): Transaction[] {
   });
 }
 
+function isDateOnlyValue(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function getBoundaryTime(value: string, boundary: 'start' | 'end'): number {
+  if (isDateOnlyValue(value)) {
+    const date = new Date(`${value}T00:00:00`);
+    return boundary === 'start' ? startOfDay(date).getTime() : endOfDay(date).getTime();
+  }
+
+  const date = new Date(value);
+  return date.getTime();
+}
+
 function applyDateRange<T extends { date: string }>(items: T[], startDate?: string, endDate?: string): T[] {
   if (!startDate || !endDate) {
     return items;
   }
 
-  const start = new Date(startDate).getTime();
-  const end = new Date(endDate).getTime();
+  const start = getBoundaryTime(startDate, 'start');
+  const end = getBoundaryTime(endDate, 'end');
 
   return items.filter((item) => {
     const value = new Date(item.date).getTime();
     return value >= start && value <= end;
   });
+}
+
+function getPeriodBounds(period: SummaryPeriod): { start: Date; end: Date } {
+  const now = new Date();
+
+  switch (period) {
+    case 'week':
+      return {
+        start: startOfDay(subDays(now, 6)),
+        end: endOfDay(now),
+      };
+    case 'month':
+      return {
+        start: startOfMonth(now),
+        end: endOfDay(now),
+      };
+    case 'year':
+      return {
+        start: startOfYear(now),
+        end: endOfYear(now),
+      };
+  }
 }
 
 function normalizeAccount(account: Partial<Account>): Account {
@@ -484,4 +543,63 @@ export async function getCategorySummary(type: 'income' | 'expense', startDate?:
   }
 
   return Array.from(categoryMap.values()).sort((a, b) => b.total - a.total);
+}
+
+export async function getPeriodSummary(period: SummaryPeriod): Promise<PeriodSummary> {
+  const { start, end } = getPeriodBounds(period);
+  const summary = await getIncomeExpenseSummary(format(start, 'yyyy-MM-dd'), format(end, 'yyyy-MM-dd'));
+
+  return {
+    ...summary,
+    net: summary.income - summary.expense,
+  };
+}
+
+export async function getTrendSummary(period: SummaryPeriod): Promise<TrendSummaryItem[]> {
+  const { start, end } = getPeriodBounds(period);
+  const transactions = applyDateRange(
+    await getAllTransactions(),
+    format(start, 'yyyy-MM-dd'),
+    format(end, 'yyyy-MM-dd')
+  );
+
+  const buckets = period === 'year'
+    ? eachMonthOfInterval({ start, end: endOfMonth(end) }).map((date) => ({
+        key: format(date, 'yyyy-MM'),
+        label: format(date, 'M月'),
+      }))
+    : eachDayOfInterval({ start, end }).map((date) => ({
+        key: format(date, 'yyyy-MM-dd'),
+        label: period === 'week' ? format(date, 'M/d') : format(date, 'd'),
+      }));
+
+  const summaryMap = new Map<string, TrendSummaryItem>(
+    buckets.map((bucket) => [
+      bucket.key,
+      {
+        label: bucket.label,
+        income: 0,
+        expense: 0,
+      },
+    ])
+  );
+
+  for (const transaction of transactions) {
+    const bucketKey = period === 'year'
+      ? format(new Date(transaction.date), 'yyyy-MM')
+      : format(new Date(transaction.date), 'yyyy-MM-dd');
+    const bucket = summaryMap.get(bucketKey);
+
+    if (!bucket) {
+      continue;
+    }
+
+    if (transaction.type === 'income') {
+      bucket.income += transaction.amount;
+    } else {
+      bucket.expense += transaction.amount;
+    }
+  }
+
+  return buckets.map((bucket) => summaryMap.get(bucket.key)!);
 }
