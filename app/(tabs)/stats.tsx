@@ -4,6 +4,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTransactionStore } from '@/store/useTransactionStore';
 import { getCategoryByName } from '@/utils/categories';
 import { formatCurrency } from '@/utils/format';
+import { stripEmotionFromDescription } from '@/utils/home-clues';
 import { useFocusEffect } from 'expo-router';
 import {
   addMonths,
@@ -301,7 +302,7 @@ export default function StatsScreen() {
                     {transaction.category}
                   </Text>
                   <Text style={[styles.flowDesc, { color: colors.textSecondary }]} numberOfLines={1}>
-                    {transaction.description || transaction.account_name || '未填写备注'}
+                    {stripEmotionFromDescription(transaction.description) || transaction.account_name || '未填写备注'}
                   </Text>
                 </View>
                 <Text

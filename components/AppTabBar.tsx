@@ -27,10 +27,11 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
         {
           paddingBottom: Math.max(insets.bottom, 10),
         },
-      ]}>
+      ]}
+      pointerEvents="box-none">
       <View
         style={[
-          styles.bar,
+          styles.tabBar,
           {
             backgroundColor: colors.surfaceElevated,
             shadowColor: colors.fabShadow,
@@ -69,13 +70,14 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
             );
           })}
         </View>
+      </View>
 
+      <View style={styles.addButtonWrap} pointerEvents="box-none">
         <TouchableOpacity
           style={[styles.addButton, { backgroundColor: colors.primary, shadowColor: colors.fabShadow }]}
           onPress={() => router.push('/add-transaction' as Href)}
           activeOpacity={0.85}>
           <Text style={styles.addButtonIcon}>+</Text>
-          <Text style={styles.addButtonText}>记支出</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -90,15 +92,16 @@ const styles = StyleSheet.create({
     bottom: 0,
     paddingHorizontal: 14,
   },
-  bar: {
-    minHeight: 82,
+  tabBar: {
+    position: 'absolute',
+    left: 0,
+    bottom: 8,
+    minHeight: 70,
+    width: 206,
     borderRadius: 28,
-    paddingLeft: 12,
-    paddingRight: 12,
-    paddingTop: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    justifyContent: 'center',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.08,
     shadowRadius: 20,
@@ -108,20 +111,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    gap: 2,
-    flexShrink: 1,
+    width: '100%',
   },
   tabButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  addButtonWrap: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    zIndex: 20,
+    elevation: 20,
+  },
   addButton: {
-    width: 78,
-    height: 78,
-    borderRadius: 39,
+    width: 86,
+    height: 86,
+    borderRadius: 43,
     alignItems: 'center',
     justifyContent: 'center',
     shadowOffset: { width: 0, height: 12 },
@@ -131,15 +140,9 @@ const styles = StyleSheet.create({
   },
   addButtonIcon: {
     color: '#FFFFFF',
-    fontSize: 32,
-    lineHeight: 32,
+    fontSize: 40,
+    lineHeight: 40,
     fontWeight: '700',
-    marginTop: -2,
-  },
-  addButtonText: {
-    marginTop: 2,
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
+    marginTop: -4,
   },
 });

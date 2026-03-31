@@ -24,7 +24,7 @@ import {
   type EmotionKey,
 } from '@/utils/home-clues';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Sparkles, X } from 'lucide-react-native';
+import { Camera, Mic, Sparkles, Type, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
@@ -119,6 +119,7 @@ export default function AddTransactionScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [isAiToolsOpen, setIsAiToolsOpen] = useState(false);
   const [activeAiPanel, setActiveAiPanel] = useState<AIInputMode | null>(null);
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiStatus, setAiStatus] = useState('');
@@ -438,6 +439,7 @@ export default function AddTransactionScreen() {
   }, [handleCameraRecognition, input, isEditMode]);
 
   const validationMessage = !form.amount || Number.parseFloat(form.amount) <= 0 ? '请输入有效金额' : !form.selectedAccountId ? '请选择账户' : '';
+  const showInlineAiTools = !isQuickInputMode && !isEditMode && isAiToolsOpen;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -450,11 +452,28 @@ export default function AddTransactionScreen() {
             <X size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={[styles.title, { color: colors.text }]}>{isEditMode ? '编辑交易' : '记一笔'}</Text>
-          <TouchableOpacity onPress={handleSave} disabled={isSaveDisabled}>
-            <Text style={[styles.saveBtn, { color: isSaveDisabled ? colors.textSecondary : colors.primary }]}>
-              {isLoading ? '加载中...' : isSubmitting ? '保存中...' : '保存'}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            {!isQuickInputMode && !isEditMode ? (
+              <TouchableOpacity
+                style={[styles.aiToggleButton, { backgroundColor: isAiToolsOpen ? colors.primaryLight : colors.softBackground }]}
+                onPress={() => {
+                  setIsAiToolsOpen((current) => {
+                    const next = !current;
+                    if (!next) {
+                      setActiveAiPanel(null);
+                    }
+                    return next;
+                  });
+                }}>
+                <Sparkles size={16} color={colors.primary} />
+              </TouchableOpacity>
+            ) : null}
+            <TouchableOpacity onPress={handleSave} disabled={isSaveDisabled}>
+              <Text style={[styles.saveBtn, { color: isSaveDisabled ? colors.textSecondary : colors.primary }]}>
+                {isLoading ? '加载中...' : isSubmitting ? '保存中...' : '保存'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
         {isQuickInputMode ? (
@@ -498,6 +517,96 @@ export default function AddTransactionScreen() {
                 </TouchableOpacity>
               </View>
             ) : null}
+            {activeAiPanel === 'voice' ? (
+              <View style={styles.aiPanel}>
+                <Text style={[styles.panelLabel, { color: colors.textSecondary }]}>
+                  例如说：今天午餐 36 元，刷工商银行卡。
+                </Text>
+                <View style={styles.voiceActions}>
+                  <TouchableOpacity
+                    style={[styles.voiceButton, { backgroundColor: recording ? '#FEE2E2' : colors.primaryLight }]}
+                    onPress={recording ? stopVoiceRecording : startVoiceRecording}
+                    disabled={isAiLoading}
+                  >
+                    <Text style={[styles.voiceButtonText, { color: recording ? '#DC2626' : colors.primary }]}>
+                      {recording ? '停止录音' : '开始录音'}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.voiceButton, { backgroundColor: colors.primary }]}
+                    onPress={handleVoiceRecognition}
+                    disabled={isAiLoading || !recordedAudioUri || !!recording}
+                  >
+                    <Text style={styles.voiceConfirmText}>{isAiLoading ? '识别中...' : '识别语音'}</Text>
+                  </TouchableOpacity>
+                </View>
+                <Text style={[styles.voiceHint, { color: colors.textSecondary }]}>
+                  {recording ? '正在录音中...' : recordedAudioUri ? '录音已完成，点击“识别语音”即可预填。' : '先录一段记账语音，再点击识别。'}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
+        {showInlineAiTools ? (
+          <View style={[styles.inlineAiCard, { backgroundColor: colors.card }]}>
+            <View style={styles.inlineAiHeader}>
+              <Text style={[styles.inlineAiTitle, { color: colors.text }]}>AI 辅助记账</Text>
+              <Text style={[styles.inlineAiStatus, { color: colors.textSecondary }]}>
+                {aiStatus || '识别后会自动预填到下面的表单里。'}
+              </Text>
+            </View>
+
+            <View style={styles.inlineAiTabs}>
+              <TouchableOpacity
+                style={[styles.inlineAiTab, { backgroundColor: activeAiPanel === 'voice' ? colors.primaryLight : colors.softBackground }]}
+                onPress={() => setActiveAiPanel((current) => (current === 'voice' ? null : 'voice'))}>
+                <Mic size={16} color={colors.primary} />
+                <Text style={[styles.inlineAiTabText, { color: colors.text }]}>语音识别</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.inlineAiTab, { backgroundColor: colors.softBackground }]}
+                onPress={() => {
+                  setActiveAiPanel('camera');
+                  handleCameraRecognition().catch((error) => {
+                    Alert.alert('拍照识别失败', (error as Error).message);
+                  });
+                }}>
+                <Camera size={16} color={colors.primary} />
+                <Text style={[styles.inlineAiTabText, { color: colors.text }]}>图片识别</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.inlineAiTab, { backgroundColor: activeAiPanel === 'text' ? colors.primaryLight : colors.softBackground }]}
+                onPress={() => setActiveAiPanel((current) => (current === 'text' ? null : 'text'))}>
+                <Type size={16} color={colors.primary} />
+                <Text style={[styles.inlineAiTabText, { color: colors.text }]}>文字识别</Text>
+              </TouchableOpacity>
+            </View>
+
+            {activeAiPanel === 'text' ? (
+              <View style={styles.aiPanel}>
+                <Text style={[styles.panelLabel, { color: colors.textSecondary }]}>
+                  输入一句账单描述，例如：午餐 32 元，用支付宝支付。
+                </Text>
+                <TextInput
+                  style={[styles.aiPromptInput, { color: colors.text, borderColor: colors.border }]}
+                  placeholder="输入账单文字、短信、聊天记录或自然语言描述"
+                  placeholderTextColor={colors.textSecondary}
+                  multiline
+                  value={aiPrompt}
+                  onChangeText={setAiPrompt}
+                  textAlignVertical="top"
+                />
+                <TouchableOpacity
+                  style={[styles.aiSubmitButton, { backgroundColor: colors.primary }]}
+                  onPress={handleTextRecognition}
+                  disabled={isAiLoading}
+                >
+                  <Text style={styles.aiSubmitText}>{isAiLoading ? '识别中...' : '识别并预填'}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
             {activeAiPanel === 'voice' ? (
               <View style={styles.aiPanel}>
                 <Text style={[styles.panelLabel, { color: colors.textSecondary }]}>
@@ -671,10 +780,32 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   flex: { flex: 1 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  aiToggleButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   title: { fontSize: 18, fontWeight: '600' },
   saveBtn: { fontSize: 16, fontWeight: '600' },
   scrollContent: { paddingBottom: 32 },
   aiCard: { marginHorizontal: 20, marginBottom: 20, borderRadius: 20, padding: 16, gap: 12 },
+  inlineAiCard: { marginHorizontal: 20, marginBottom: 16, borderRadius: 20, padding: 16, gap: 12 },
+  inlineAiHeader: { gap: 4 },
+  inlineAiTitle: { fontSize: 15, fontWeight: '700' },
+  inlineAiStatus: { fontSize: 12, lineHeight: 18 },
+  inlineAiTabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  inlineAiTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 999,
+  },
+  inlineAiTabText: { fontSize: 13, fontWeight: '600' },
   aiHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   aiTitle: { fontSize: 16, fontWeight: '700' },
   aiSubtitle: { fontSize: 13, lineHeight: 19 },
