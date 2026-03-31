@@ -17,7 +17,7 @@ import { useTransactionStore } from '@/store/useTransactionStore';
 import { getTransactionEntryPreferences, saveTransactionEntryPreferences } from '@/utils/transaction-entry-preferences';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '@/utils/categories';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { CheckCircle2, Sparkles, X } from 'lucide-react-native';
+import { Sparkles, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
@@ -25,7 +25,6 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -98,7 +97,7 @@ export default function AddTransactionScreen() {
   const isQuickInputMode = Boolean(input) && !isEditMode;
 
   const { selectableAccounts, fetchAccounts } = useAccountStore();
-  const { addTransaction, updateTransaction, getTransactionById } = useTransactionStore();
+  const { addTransaction, updateTransaction, getTransactionById, fetchRecentTransactions, fetchSummary } = useTransactionStore();
 
   const amountInputRef = useRef<TextInput | null>(null);
   const autoHandledInputRef = useRef<string | null>(null);
@@ -108,8 +107,6 @@ export default function AddTransactionScreen() {
   const [form, setForm] = useState<FormState>(() => createFormState());
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [saveNotice, setSaveNotice] = useState('');
-  const [keepEntering, setKeepEntering] = useState(!isEditMode);
 
   const [activeAiPanel, setActiveAiPanel] = useState<AIInputMode | null>(null);
   const [aiPrompt, setAiPrompt] = useState('');
@@ -229,23 +226,16 @@ export default function AddTransactionScreen() {
 
   const isSaveDisabled = !form.amount || Number.parseFloat(form.amount) <= 0 || !form.selectedAccountId || isSubmitting || isLoading || isAiLoading;
 
-  const handleQuickReset = useCallback(() => {
-    setForm((current) =>
-      createFormState({
-        type: current.type,
-        selectedCategory: current.selectedCategory,
-        selectedAccountId: current.selectedAccountId,
-        entryDate: current.entryDate,
-        amount: '',
-        description: '',
-      })
-    );
-    setAiStatus('');
-    setAiPrompt('');
-    setRecordedAudioUri(null);
-    setActiveAiPanel(null);
-    requestAnimationFrame(() => amountInputRef.current?.focus());
-  }, []);
+  const closeToHome = useCallback(async () => {
+    await Promise.all([
+      fetchAccounts(),
+      fetchRecentTransactions(5),
+      fetchSummary(),
+    ]);
+
+    router.dismissAll();
+    router.replace('/');
+  }, [fetchAccounts, fetchRecentTransactions, fetchSummary, router]);
 
   const handleSave = async () => {
     if (isSaveDisabled) {
@@ -254,7 +244,6 @@ export default function AddTransactionScreen() {
     }
 
     setIsSubmitting(true);
-    setSaveNotice('');
 
     try {
       if (isEditMode && id) {
@@ -271,7 +260,7 @@ export default function AddTransactionScreen() {
           lastAccountId: form.selectedAccountId,
           lastType: form.type,
         });
-        router.replace('/');
+        await closeToHome();
       } else {
         await addTransaction({
           type: form.type,
@@ -286,13 +275,7 @@ export default function AddTransactionScreen() {
           lastAccountId: form.selectedAccountId,
           lastType: form.type,
         });
-
-        if (keepEntering) {
-          setSaveNotice('已保存，继续下一笔');
-          handleQuickReset();
-        } else {
-          router.replace('/');
-        }
+        await closeToHome();
       }
     } catch {
       Alert.alert('错误', isEditMode ? '更新失败' : '保存失败');
@@ -441,7 +424,6 @@ export default function AddTransactionScreen() {
     });
   }, [handleCameraRecognition, input, isEditMode]);
 
-  const activeCategories = form.type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
   const validationMessage = !form.amount || Number.parseFloat(form.amount) <= 0 ? '请输入有效金额' : !form.selectedAccountId ? '请选择账户' : '';
 
   return (
@@ -617,28 +599,6 @@ export default function AddTransactionScreen() {
             onSelect={(category) => updateForm({ selectedCategory: category as CategoryOption })}
             compact
           />
-          <View style={styles.quickCategoryRow}>
-            {activeCategories.map((category) => {
-              const isSelected = form.selectedCategory.name === category.name;
-              return (
-                <TouchableOpacity
-                  key={category.name}
-                  style={[
-                    styles.quickCategoryChip,
-                    {
-                      backgroundColor: isSelected ? `${category.color}20` : colors.background,
-                      borderColor: isSelected ? category.color : colors.border,
-                    },
-                  ]}
-                  onPress={() => updateForm({ selectedCategory: category })}
-                >
-                  <Text style={[styles.quickCategoryText, { color: isSelected ? category.color : colors.textSecondary }]}>
-                    {category.name}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
         </View>
         <View style={[styles.section, { backgroundColor: colors.card }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>备注</Text>
@@ -650,25 +610,6 @@ export default function AddTransactionScreen() {
             onChangeText={(description) => updateForm({ description })}
           />
         </View>
-        {!isEditMode ? (
-          <View style={[styles.section, { backgroundColor: colors.card }]}>
-            <View style={styles.keepEnteringRow}>
-              <View style={styles.keepEnteringTextWrap}>
-                <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 4 }]}>连续记账</Text>
-                <Text style={[styles.keepEnteringHint, { color: colors.textSecondary }]}>
-                  保存后保留账户、类型、日期和当前分类，直接录下一笔。
-                </Text>
-              </View>
-              <Switch value={keepEntering} onValueChange={setKeepEntering} trackColor={{ true: colors.primary, false: colors.border }} />
-            </View>
-          </View>
-        ) : null}
-        {saveNotice ? (
-          <View style={[styles.noticeCard, { backgroundColor: colors.primaryLight }]}>
-            <CheckCircle2 size={18} color={colors.primary} />
-            <Text style={[styles.noticeText, { color: colors.text }]}>{saveNotice}</Text>
-          </View>
-        ) : null}
         <View style={styles.footer}>
           <Text style={[styles.footerText, { color: validationMessage ? colors.expense : colors.textSecondary }]}>
             {validationMessage || `当前账户：${selectedAccount?.name ?? '未选择'}${initialValues ? '' : '，正在准备默认值...'}`}
@@ -745,23 +686,7 @@ const styles = StyleSheet.create({
   optionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   optionChip: { borderRadius: 999, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 10 },
   optionChipText: { fontSize: 14, fontWeight: '600' },
-  quickCategoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
-  quickCategoryChip: { borderRadius: 999, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8 },
-  quickCategoryText: { fontSize: 13, fontWeight: '600' },
   descInput: { borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 16 },
-  keepEnteringRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16 },
-  keepEnteringTextWrap: { flex: 1 },
-  keepEnteringHint: { fontSize: 13, lineHeight: 19 },
-  noticeCard: {
-    marginHorizontal: 20,
-    marginBottom: 16,
-    borderRadius: 16,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  noticeText: { flex: 1, fontSize: 14, fontWeight: '600' },
   footer: { paddingHorizontal: 20, paddingTop: 4 },
   footerText: { fontSize: 13, lineHeight: 18 },
 });
