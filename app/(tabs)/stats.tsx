@@ -279,7 +279,7 @@ export default function StatsScreen() {
         </View>
 
         <View style={styles.dualRow}>
-          <View style={[styles.smallCard, styles.calendarCard, { backgroundColor: colors.surfaceElevated }]}>
+          <View style={[styles.sharedSmallCard, styles.calendarCard, { backgroundColor: colors.surfaceElevated }]}>
             <Text style={[styles.cardTitle, { color: colors.text }]}>支出日历</Text>
             <View style={styles.weekLabelRow}>
               {WEEKDAY_LABELS.map((label) => (
@@ -314,7 +314,7 @@ export default function StatsScreen() {
             </View>
           </View>
 
-          <View style={[styles.smallCard, styles.categoryCard, { backgroundColor: colors.surfaceElevated }]}>
+          <View style={[styles.sharedSmallCard, styles.moodCard, { backgroundColor: colors.surfaceElevated }]}>
             <View style={styles.categoryHeader}>
               <Text style={[styles.cardTitle, { color: colors.text }]}>心情账单</Text>
             </View>
@@ -634,11 +634,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
-  smallCard: {
+  sharedSmallCard: {
     flex: 1,
     borderRadius: 24,
     padding: 16,
-    minHeight: 220,
     shadowColor: '#D96E9B',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.05,
@@ -646,10 +645,11 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   calendarCard: {
+    minHeight: 220,
     justifyContent: 'space-between',
   },
-  categoryCard: {
-    justifyContent: 'space-between',
+  moodCard: {
+    justifyContent: 'flex-start',
   },
   cardTitle: {
     fontSize: 18,
