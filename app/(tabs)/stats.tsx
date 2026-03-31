@@ -2,9 +2,10 @@ import { AppPageHeader } from '@/components/AppPageHeader';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTransactionStore } from '@/store/useTransactionStore';
+import { getCategoryByName, getCategoryIconComponent } from '@/utils/categories';
 import { formatCurrency } from '@/utils/format';
 import type { EmotionKey } from '@/utils/home-clues';
-import { getEmotionMeta, parseEmotionFromDescription, stripEmotionFromDescription } from '@/utils/home-clues';
+import { getEmotionMeta, getHomeCategoryCopy, parseEmotionFromDescription, stripEmotionFromDescription } from '@/utils/home-clues';
 import { useFocusEffect } from 'expo-router';
 import {
   addMonths,
@@ -25,6 +26,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
 const EMOTION_KEYS: EmotionKey[] = ['super_happy', 'impulsive', 'lesson_learned'];
 
+type CategoryCompareMode = 'share' | 'previous';
+
+type CategoryInsightItem = {
+  category: string;
+  categoryIcon: string;
+  categoryCopy: string;
+  total: number;
+  sharePercent: number;
+  previousTotal: number;
+  deltaPercent: number | null;
+  isNew: boolean;
+};
+
 function formatMonthKey(date: Date): string {
   return format(startOfMonth(date), 'yyyy-MM');
 }
@@ -42,13 +56,17 @@ export default function StatsScreen() {
 
   const [selectedMonthDate, setSelectedMonthDate] = useState(() => startOfMonth(new Date()));
   const [selectedCategoryType, setSelectedCategoryType] = useState<'expense' | 'income'>('expense');
+  const [categoryCompareMode, setCategoryCompareMode] = useState<CategoryCompareMode>('share');
 
   const selectedMonth = useMemo(() => formatMonthKey(selectedMonthDate), [selectedMonthDate]);
+  const previousMonthDate = useMemo(() => subMonths(selectedMonthDate, 1), [selectedMonthDate]);
 
   const {
+    transactions,
     monthlySummary,
     monthlyTrendSummary,
     monthlyRecentTransactions,
+    fetchTransactions,
     fetchMonthlySummary,
     fetchMonthlyTrendSummary,
     fetchMonthlyRecentTransactions,
@@ -56,11 +74,13 @@ export default function StatsScreen() {
 
   const loadStats = useCallback(() => {
     return Promise.all([
+      fetchTransactions(),
       fetchMonthlySummary(selectedMonth),
       fetchMonthlyTrendSummary(selectedMonth),
       fetchMonthlyRecentTransactions(selectedMonth, 9999),
     ]);
   }, [
+    fetchTransactions,
     fetchMonthlyRecentTransactions,
     fetchMonthlySummary,
     fetchMonthlyTrendSummary,
@@ -109,6 +129,57 @@ export default function StatsScreen() {
     })
       .sort((a, b) => b.count - a.count);
   }, [monthlyRecentTransactions, selectedCategoryType]);
+  const categoryInsights = useMemo<CategoryInsightItem[]>(() => {
+    const currentMonthTotals = new Map<string, { total: number; categoryIcon: string }>();
+    const previousMonthTotals = new Map<string, number>();
+
+    for (const transaction of transactions) {
+      if (transaction.type !== selectedCategoryType) {
+        continue;
+      }
+
+      const monthMatchesCurrent = isSameMonth(new Date(transaction.date), selectedMonthDate);
+      const monthMatchesPrevious = isSameMonth(new Date(transaction.date), previousMonthDate);
+
+      if (monthMatchesCurrent) {
+        const current = currentMonthTotals.get(transaction.category);
+        currentMonthTotals.set(transaction.category, {
+          total: (current?.total ?? 0) + transaction.amount,
+          categoryIcon: transaction.category_icon || current?.categoryIcon || getCategoryByName(transaction.category, transaction.type).icon,
+        });
+      }
+
+      if (monthMatchesPrevious) {
+        previousMonthTotals.set(transaction.category, (previousMonthTotals.get(transaction.category) ?? 0) + transaction.amount);
+      }
+    }
+
+    const currentMonthTotal = Array.from(currentMonthTotals.values()).reduce((sum, item) => sum + item.total, 0);
+
+    return Array.from(currentMonthTotals.entries())
+      .map(([category, item]) => {
+        const previousTotal = previousMonthTotals.get(category) ?? 0;
+        const sharePercent = currentMonthTotal > 0 ? Math.round((item.total / currentMonthTotal) * 10000) / 100 : 0;
+        const isNew = previousTotal <= 0 && item.total > 0;
+        const deltaPercent = previousTotal > 0 ? Math.round((((item.total - previousTotal) / previousTotal) * 100) * 100) / 100 : null;
+
+        return {
+          category,
+          categoryIcon: item.categoryIcon,
+          categoryCopy: getHomeCategoryCopy(category),
+          total: item.total,
+          sharePercent,
+          previousTotal,
+          deltaPercent,
+          isNew,
+        };
+      })
+      .sort((a, b) => b.total - a.total);
+  }, [previousMonthDate, selectedCategoryType, selectedMonthDate, transactions]);
+  const maxCategoryTotal = useMemo(
+    () => categoryInsights.reduce((max, item) => Math.max(max, item.total), 0),
+    [categoryInsights]
+  );
   const chartWidth = Math.max(width - 84, 260);
   const barGap = monthlyTrendSummary.length > 0 ? 4 : 0;
   const barWidth = monthlyTrendSummary.length > 0
@@ -246,9 +317,6 @@ export default function StatsScreen() {
           <View style={[styles.smallCard, styles.categoryCard, { backgroundColor: colors.surfaceElevated }]}>
             <View style={styles.categoryHeader}>
               <Text style={[styles.cardTitle, { color: colors.text }]}>心情账单</Text>
-              <Text style={[styles.categoryScope, { color: colors.textSecondary }]}>
-                本月已记录的心情
-              </Text>
             </View>
             <View style={styles.categoryMiniList}>
               {emotionSummary.map((item) => (
@@ -271,6 +339,115 @@ export default function StatsScreen() {
               ))}
             </View>
           </View>
+        </View>
+
+        <View style={[styles.categoryListCard, { backgroundColor: colors.surfaceElevated }]}>
+          <View style={styles.categoryListHeader}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>分类占比</Text>
+            <View style={[styles.categoryCompareSwitch, { backgroundColor: colors.surfaceMuted }]}>
+              <TouchableOpacity
+                style={[
+                  styles.categoryCompareButton,
+                  categoryCompareMode === 'share' && { backgroundColor: colors.card },
+                ]}
+                onPress={() => setCategoryCompareMode('share')}
+              >
+                <Text
+                  style={[
+                    styles.categoryCompareText,
+                    { color: categoryCompareMode === 'share' ? colors.text : colors.textSecondary },
+                  ]}
+                >
+                  占当月总{selectedCategoryType === 'expense' ? '支出' : '收入'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.categoryCompareButton,
+                  categoryCompareMode === 'previous' && { backgroundColor: colors.card },
+                ]}
+                onPress={() => setCategoryCompareMode('previous')}
+              >
+                <Text
+                  style={[
+                    styles.categoryCompareText,
+                    { color: categoryCompareMode === 'previous' ? colors.text : colors.textSecondary },
+                  ]}
+                >
+                  上个月
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {categoryInsights.length > 0 ? (
+            <View style={styles.categoryListBody}>
+              {categoryInsights.map((item) => {
+                const IconComponent = getCategoryIconComponent(item.categoryIcon);
+                const compareText = categoryCompareMode === 'share'
+                  ? `${item.sharePercent.toFixed(2)}%`
+                  : item.isNew
+                    ? '新增'
+                    : `${item.deltaPercent && item.deltaPercent > 0 ? '+' : ''}${(item.deltaPercent ?? 0).toFixed(2)}%`;
+                const compareColor = categoryCompareMode === 'share'
+                  ? colors.textSecondary
+                  : item.isNew || (item.deltaPercent ?? 0) > 0
+                    ? colors.income
+                    : (item.deltaPercent ?? 0) < 0
+                      ? colors.expense
+                      : colors.textSecondary;
+                const progressWidth: `${number}%` = maxCategoryTotal > 0
+                  ? `${Math.max(8, (item.total / maxCategoryTotal) * 100)}%`
+                  : '0%';
+
+                return (
+                  <View key={item.category} style={styles.categoryInsightRow}>
+                    <View style={styles.categoryInsightTop}>
+                      <View style={styles.categoryInsightMain}>
+                        <View style={[styles.categoryInsightIconWrap, { backgroundColor: `${getCategoryByName(item.category, selectedCategoryType).color}18` }]}>
+                          <IconComponent size={18} color={getCategoryByName(item.category, selectedCategoryType).color} />
+                        </View>
+                        <View style={styles.categoryInsightCopy}>
+                          <Text style={[styles.categoryInsightCopyLabel, { color: colors.textSecondary }]} numberOfLines={1}>
+                            {item.categoryCopy}
+                          </Text>
+                          <Text style={[styles.categoryInsightTitle, { color: colors.text }]} numberOfLines={1}>
+                            {item.category}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.categoryInsightValues}>
+                        <Text style={[styles.categoryInsightAmount, { color: colors.text }]}>
+                          {formatCurrency(item.total)}
+                        </Text>
+                        <Text style={[styles.categoryInsightCompare, { color: compareColor }]}>
+                          {compareText}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={[styles.categoryProgressTrack, { backgroundColor: colors.softBackground }]}>
+                      <View
+                        style={[
+                          styles.categoryProgressFill,
+                          {
+                            width: progressWidth,
+                            backgroundColor: getCategoryByName(item.category, selectedCategoryType).color,
+                          },
+                        ]}
+                      />
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <View style={styles.flowEmptyState}>
+              <Text style={[styles.flowEmptyTitle, { color: colors.text }]}>暂无分类数据</Text>
+              <Text style={[styles.flowEmptyDesc, { color: colors.textSecondary }]}>
+                当前月份还没有分类统计
+              </Text>
+            </View>
+          )}
         </View>
 
         <View style={[styles.flowCard, { backgroundColor: colors.surfaceElevated }]}>
@@ -517,9 +694,6 @@ const styles = StyleSheet.create({
   categoryHeader: {
     gap: 4,
   },
-  categoryScope: {
-    fontSize: 12,
-  },
   categoryMiniList: {
     marginTop: 14,
     gap: 10,
@@ -557,13 +731,98 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  smallEmptyState: {
+  categoryListCard: {
+    borderRadius: 24,
+    padding: 16,
+    shadowColor: '#D96E9B',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+    elevation: 3,
+  },
+  categoryListHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  categoryCompareSwitch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 999,
+    padding: 3,
+  },
+  categoryCompareButton: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  categoryCompareText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  categoryListBody: {
+    marginTop: 14,
+    gap: 12,
+  },
+  categoryInsightRow: {
+    gap: 8,
+  },
+  categoryInsightTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  categoryInsightMain: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    minWidth: 0,
+    gap: 10,
+  },
+  categoryInsightIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  smallEmptyText: {
-    fontSize: 13,
+  categoryInsightCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  categoryInsightCopyLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  categoryInsightTitle: {
+    marginTop: 2,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  categoryInsightValues: {
+    alignItems: 'flex-end',
+    minWidth: 88,
+  },
+  categoryInsightAmount: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  categoryInsightCompare: {
+    marginTop: 3,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  categoryProgressTrack: {
+    width: '100%',
+    height: 6,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  categoryProgressFill: {
+    height: '100%',
+    borderRadius: 999,
   },
   flowCard: {
     borderRadius: 24,
