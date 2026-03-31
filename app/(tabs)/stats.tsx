@@ -2,9 +2,9 @@ import { AppPageHeader } from '@/components/AppPageHeader';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTransactionStore } from '@/store/useTransactionStore';
-import { getCategoryByName } from '@/utils/categories';
 import { formatCurrency } from '@/utils/format';
-import { stripEmotionFromDescription } from '@/utils/home-clues';
+import type { EmotionKey } from '@/utils/home-clues';
+import { getEmotionMeta, parseEmotionFromDescription, stripEmotionFromDescription } from '@/utils/home-clues';
 import { useFocusEffect } from 'expo-router';
 import {
   addMonths,
@@ -19,18 +19,14 @@ import {
 } from 'date-fns';
 import { ChevronDown, ChevronLeft, ChevronRight, Search } from 'lucide-react-native';
 import React, { useCallback, useMemo, useState } from 'react';
-import { PieChart, type pieDataItem } from 'react-native-gifted-charts';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
+const EMOTION_KEYS: EmotionKey[] = ['super_happy', 'impulsive', 'lesson_learned'];
 
 function formatMonthKey(date: Date): string {
   return format(startOfMonth(date), 'yyyy-MM');
-}
-
-function getCategoryColor(categoryName: string, type: 'expense' | 'income'): string {
-  return getCategoryByName(categoryName, type).color;
 }
 
 function buildCalendarDays(monthDate: Date): Date[] {
@@ -53,10 +49,8 @@ export default function StatsScreen() {
     monthlySummary,
     monthlyTrendSummary,
     monthlyRecentTransactions,
-    categorySummary,
     fetchMonthlySummary,
     fetchMonthlyTrendSummary,
-    fetchMonthlyCategorySummary,
     fetchMonthlyRecentTransactions,
   } = useTransactionStore();
 
@@ -64,15 +58,12 @@ export default function StatsScreen() {
     return Promise.all([
       fetchMonthlySummary(selectedMonth),
       fetchMonthlyTrendSummary(selectedMonth),
-      fetchMonthlyCategorySummary(selectedCategoryType, selectedMonth),
-      fetchMonthlyRecentTransactions(selectedMonth, 6),
+      fetchMonthlyRecentTransactions(selectedMonth, 9999),
     ]);
   }, [
-    fetchMonthlyCategorySummary,
     fetchMonthlyRecentTransactions,
     fetchMonthlySummary,
     fetchMonthlyTrendSummary,
-    selectedCategoryType,
     selectedMonth,
   ]);
 
@@ -86,20 +77,38 @@ export default function StatsScreen() {
     return monthlyTrendSummary.reduce((max, item) => Math.max(max, item.expense), 0);
   }, [monthlyTrendSummary]);
 
-  const pieData = useMemo<pieDataItem[]>(() => {
-    return categorySummary.map((item) => ({
-      value: item.total,
-      color: getCategoryColor(item.category, selectedCategoryType),
-    }));
-  }, [categorySummary, selectedCategoryType]);
-
   const calendarDays = useMemo(() => buildCalendarDays(selectedMonthDate), [selectedMonthDate]);
   const expenseMap = useMemo(() => {
     return new Map(monthlyTrendSummary.map((item) => [item.day, item.expense]));
   }, [monthlyTrendSummary]);
-  const currentMonthTotal = selectedCategoryType === 'expense' ? monthlySummary.expense : monthlySummary.income;
-  const hasCategoryData = categorySummary.length > 0;
   const hasMonthlyTransactions = monthlyRecentTransactions.length > 0;
+  const emotionSummary = useMemo(() => {
+    const counts = new Map<EmotionKey, number>(EMOTION_KEYS.map((key) => [key, 0]));
+
+    for (const transaction of monthlyRecentTransactions) {
+      if (transaction.type !== selectedCategoryType) {
+        continue;
+      }
+
+      const emotionKey = parseEmotionFromDescription(transaction.description);
+      if (!emotionKey) {
+        continue;
+      }
+
+      counts.set(emotionKey, (counts.get(emotionKey) ?? 0) + 1);
+    }
+
+    return EMOTION_KEYS.map((key) => {
+      const emotion = getEmotionMeta(key);
+      return {
+        key,
+        emoji: emotion.emoji,
+        label: emotion.label,
+        count: counts.get(key) ?? 0,
+      };
+    })
+      .sort((a, b) => b.count - a.count);
+  }, [monthlyRecentTransactions, selectedCategoryType]);
   const chartWidth = Math.max(width - 84, 260);
   const barGap = monthlyTrendSummary.length > 0 ? 4 : 0;
   const barWidth = monthlyTrendSummary.length > 0
@@ -236,52 +245,31 @@ export default function StatsScreen() {
 
           <View style={[styles.smallCard, styles.categoryCard, { backgroundColor: colors.surfaceElevated }]}>
             <View style={styles.categoryHeader}>
-              <Text style={[styles.cardTitle, { color: colors.text }]}>分类占比</Text>
+              <Text style={[styles.cardTitle, { color: colors.text }]}>心情账单</Text>
               <Text style={[styles.categoryScope, { color: colors.textSecondary }]}>
-                占当月总{selectedCategoryType === 'expense' ? '支出' : '收入'}
+                本月已记录的心情
               </Text>
             </View>
-            {hasCategoryData ? (
-              <>
-                <View style={styles.donutWrap}>
-                  <PieChart
-                    data={pieData}
-                    donut
-                    radius={52}
-                    innerRadius={34}
-                    innerCircleColor={colors.card}
-                    strokeWidth={0}
-                    centerLabelComponent={() => (
-                      <View style={styles.donutCenter}>
-                        <Text style={[styles.donutTotal, { color: colors.text }]}>
-                          {formatCurrency(currentMonthTotal).replace('.00', '')}
-                        </Text>
-                      </View>
-                    )}
-                  />
+            <View style={styles.categoryMiniList}>
+              {emotionSummary.map((item) => (
+                <View key={item.key} style={styles.emotionRow}>
+                  <View style={styles.emotionMain}>
+                    <Text style={styles.emotionEmoji}>{item.emoji}</Text>
+                    <View style={styles.emotionCopy}>
+                      <Text style={[styles.emotionTitle, { color: colors.text }]} numberOfLines={1}>
+                        {item.label}
+                      </Text>
+                      <Text style={[styles.emotionDesc, { color: colors.textSecondary }]}>
+                        本月出现 {item.count} 次
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.emotionCount, { color: colors.primary }]}>
+                    {item.count}次
+                  </Text>
                 </View>
-                <View style={styles.categoryMiniList}>
-                  {categorySummary.slice(0, 3).map((item) => {
-                    const categoryColor = getCategoryColor(item.category, selectedCategoryType);
-                    return (
-                      <View key={item.category} style={styles.categoryMiniRow}>
-                        <View style={[styles.categoryDot, { backgroundColor: categoryColor }]} />
-                        <Text style={[styles.categoryMiniName, { color: colors.text }]} numberOfLines={1}>
-                          {item.category}
-                        </Text>
-                        <Text style={[styles.categoryMiniPercent, { color: colors.textSecondary }]}>
-                          {item.percent ?? 0}%
-                        </Text>
-                      </View>
-                    );
-                  })}
-                </View>
-              </>
-            ) : (
-              <View style={styles.smallEmptyState}>
-                <Text style={[styles.smallEmptyText, { color: colors.textSecondary }]}>暂无分类数据</Text>
-              </View>
-            )}
+              ))}
+            </View>
           </View>
         </View>
 
@@ -532,42 +520,42 @@ const styles = StyleSheet.create({
   categoryScope: {
     fontSize: 12,
   },
-  donutWrap: {
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  donutCenter: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 72,
-  },
-  donutTotal: {
-    fontSize: 14,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
   categoryMiniList: {
     marginTop: 14,
     gap: 10,
   },
-  categoryMiniRow: {
+  emotionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
+    gap: 12,
   },
-  categoryDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  categoryMiniName: {
+  emotionMain: {
     flex: 1,
-    fontSize: 13,
-    fontWeight: '600',
+    flexDirection: 'row',
+    alignItems: 'center',
+    minWidth: 0,
+    gap: 10,
   },
-  categoryMiniPercent: {
+  emotionEmoji: {
+    fontSize: 24,
+  },
+  emotionCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  emotionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  emotionDesc: {
+    marginTop: 2,
     fontSize: 12,
     fontWeight: '500',
+  },
+  emotionCount: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   smallEmptyState: {
     flex: 1,
