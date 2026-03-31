@@ -22,6 +22,24 @@ interface TrendSummaryItem {
   expense: number;
 }
 
+interface MonthlySummary {
+  month: string;
+  income: number;
+  expense: number;
+  net: number;
+  yearExpense: number;
+  averageExpense: number;
+  transactionCount: number;
+}
+
+interface MonthlyTrendSummaryItem {
+  day: number;
+  label: string;
+  income: number;
+  expense: number;
+  transactionCount: number;
+}
+
 type SummaryPeriod = 'week' | 'month' | 'year';
 
 interface TransactionState {
@@ -32,6 +50,9 @@ interface TransactionState {
   categorySummary: CategorySummary[];
   periodSummary: PeriodSummary;
   trendSummary: TrendSummaryItem[];
+  monthlySummary: MonthlySummary;
+  monthlyTrendSummary: MonthlyTrendSummaryItem[];
+  monthlyRecentTransactions: Transaction[];
   isLoading: boolean;
   error: string | null;
 
@@ -42,6 +63,10 @@ interface TransactionState {
   fetchCategorySummary: (type: 'income' | 'expense', period?: SummaryPeriod) => Promise<void>;
   fetchPeriodSummary: (period: SummaryPeriod) => Promise<void>;
   fetchTrendSummary: (period: SummaryPeriod) => Promise<void>;
+  fetchMonthlySummary: (month: string) => Promise<void>;
+  fetchMonthlyTrendSummary: (month: string) => Promise<void>;
+  fetchMonthlyCategorySummary: (type: 'income' | 'expense', month: string) => Promise<void>;
+  fetchMonthlyRecentTransactions: (month: string, limit?: number) => Promise<void>;
   addTransaction: (transaction: Omit<Transaction, 'id' | 'created_at' | 'account_name' | 'user_id'>) => Promise<number>;
   updateTransaction: (id: number, updates: Partial<Omit<Transaction, 'id' | 'created_at' | 'account_name' | 'user_id'>>) => Promise<void>;
   removeTransaction: (id: number) => Promise<void>;
@@ -87,6 +112,17 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
     net: 0,
   },
   trendSummary: [],
+  monthlySummary: {
+    month: '',
+    income: 0,
+    expense: 0,
+    net: 0,
+    yearExpense: 0,
+    averageExpense: 0,
+    transactionCount: 0,
+  },
+  monthlyTrendSummary: [],
+  monthlyRecentTransactions: [],
   isLoading: false,
   error: null,
 
@@ -152,6 +188,47 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
     }
   },
 
+  fetchMonthlySummary: async (month) => {
+    try {
+      const monthlySummary = await db.getMonthlySummary(month);
+      set({ monthlySummary });
+    } catch (error) {
+      set({ error: (error as Error).message });
+    }
+  },
+
+  fetchMonthlyTrendSummary: async (month) => {
+    try {
+      const monthlyTrendSummary = await db.getMonthlyTrendSummary(month);
+      set({ monthlyTrendSummary });
+    } catch (error) {
+      set({ error: (error as Error).message });
+    }
+  },
+
+  fetchMonthlyCategorySummary: async (type, month) => {
+    try {
+      const data = await db.getMonthlyCategorySummary(type, month);
+      const total = data.reduce((sum, item) => sum + item.total, 0);
+      const categorySummary = data.map((item) => ({
+        ...item,
+        percent: total > 0 ? Math.round((item.total / total) * 100) : 0,
+      }));
+      set({ categorySummary });
+    } catch (error) {
+      set({ error: (error as Error).message });
+    }
+  },
+
+  fetchMonthlyRecentTransactions: async (month, limit = 8) => {
+    try {
+      const monthlyRecentTransactions = await db.getMonthlyRecentTransactions(month, limit);
+      set({ monthlyRecentTransactions });
+    } catch (error) {
+      set({ error: (error as Error).message });
+    }
+  },
+
   addTransaction: async (transaction) => {
     try {
       const id = await db.createTransaction(transaction);
@@ -210,6 +287,17 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         net: 0,
       },
       trendSummary: [],
+      monthlySummary: {
+        month: '',
+        income: 0,
+        expense: 0,
+        net: 0,
+        yearExpense: 0,
+        averageExpense: 0,
+        transactionCount: 0,
+      },
+      monthlyTrendSummary: [],
+      monthlyRecentTransactions: [],
       isLoading: false,
       error: null,
     });

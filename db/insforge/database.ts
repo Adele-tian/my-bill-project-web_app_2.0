@@ -6,6 +6,8 @@ import {
   endOfMonth,
   endOfYear,
   format,
+  getDaysInMonth,
+  parse,
   startOfDay,
   startOfMonth,
   startOfYear,
@@ -42,6 +44,22 @@ export type TrendSummaryItem = {
   label: string;
   income: number;
   expense: number;
+};
+export type MonthlySummary = {
+  month: string;
+  income: number;
+  expense: number;
+  net: number;
+  yearExpense: number;
+  averageExpense: number;
+  transactionCount: number;
+};
+export type MonthlyTrendSummaryItem = {
+  day: number;
+  label: string;
+  income: number;
+  expense: number;
+  transactionCount: number;
 };
 
 export type AccountRetirementMode = 'hide' | 'archive-transfer' | 'delete';
@@ -117,6 +135,18 @@ function getPeriodBounds(period: SummaryPeriod): { start: Date; end: Date } {
         end: endOfYear(now),
       };
   }
+}
+
+function parseMonth(month: string): Date {
+  return startOfMonth(parse(`${month}-01`, 'yyyy-MM-dd', new Date()));
+}
+
+function getMonthBounds(month: string): { start: Date; end: Date } {
+  const start = parseMonth(month);
+  return {
+    start,
+    end: endOfMonth(start),
+  };
 }
 
 function normalizeAccount(account: Partial<Account>): Account {
@@ -602,4 +632,94 @@ export async function getTrendSummary(period: SummaryPeriod): Promise<TrendSumma
   }
 
   return buckets.map((bucket) => summaryMap.get(bucket.key)!);
+}
+
+export async function getMonthlySummary(month: string): Promise<MonthlySummary> {
+  const { start, end } = getMonthBounds(month);
+  const monthTransactions = applyDateRange(
+    await getAllTransactions(),
+    format(start, 'yyyy-MM-dd'),
+    format(end, 'yyyy-MM-dd')
+  );
+
+  const yearStart = startOfYear(start);
+  const yearTransactions = applyDateRange(
+    await getAllTransactions(),
+    format(yearStart, 'yyyy-MM-dd'),
+    format(end, 'yyyy-MM-dd')
+  );
+
+  const income = monthTransactions
+    .filter((transaction) => transaction.type === 'income')
+    .reduce((sum, transaction) => sum + transaction.amount, 0);
+  const expense = monthTransactions
+    .filter((transaction) => transaction.type === 'expense')
+    .reduce((sum, transaction) => sum + transaction.amount, 0);
+  const yearExpense = yearTransactions
+    .filter((transaction) => transaction.type === 'expense')
+    .reduce((sum, transaction) => sum + transaction.amount, 0);
+
+  return {
+    month,
+    income,
+    expense,
+    net: income - expense,
+    yearExpense,
+    averageExpense: expense / getDaysInMonth(start),
+    transactionCount: monthTransactions.length,
+  };
+}
+
+export async function getMonthlyTrendSummary(month: string): Promise<MonthlyTrendSummaryItem[]> {
+  const { start, end } = getMonthBounds(month);
+  const transactions = applyDateRange(
+    await getAllTransactions(),
+    format(start, 'yyyy-MM-dd'),
+    format(end, 'yyyy-MM-dd')
+  );
+  const days = eachDayOfInterval({ start, end });
+
+  const summaryMap = new Map<string, MonthlyTrendSummaryItem>(
+    days.map((date) => [
+      format(date, 'yyyy-MM-dd'),
+      {
+        day: Number(format(date, 'd')),
+        label: format(date, 'd'),
+        income: 0,
+        expense: 0,
+        transactionCount: 0,
+      },
+    ])
+  );
+
+  for (const transaction of transactions) {
+    const key = format(new Date(transaction.date), 'yyyy-MM-dd');
+    const bucket = summaryMap.get(key);
+    if (!bucket) continue;
+
+    if (transaction.type === 'income') {
+      bucket.income += transaction.amount;
+    } else {
+      bucket.expense += transaction.amount;
+    }
+    bucket.transactionCount += 1;
+  }
+
+  return days.map((date) => summaryMap.get(format(date, 'yyyy-MM-dd'))!);
+}
+
+export async function getMonthlyRecentTransactions(month: string, limit = 8): Promise<Transaction[]> {
+  const { start, end } = getMonthBounds(month);
+  const transactions = applyDateRange(
+    await getAllTransactions(),
+    format(start, 'yyyy-MM-dd'),
+    format(end, 'yyyy-MM-dd')
+  );
+
+  return transactions.slice(0, limit);
+}
+
+export async function getMonthlyCategorySummary(type: 'income' | 'expense', month: string) {
+  const { start, end } = getMonthBounds(month);
+  return getCategorySummary(type, format(start, 'yyyy-MM-dd'), format(end, 'yyyy-MM-dd'));
 }

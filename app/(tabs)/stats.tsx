@@ -1,53 +1,80 @@
+import { FloatingActionButton } from '@/components/FloatingActionButton';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTransactionStore } from '@/store/useTransactionStore';
 import { getCategoryByName } from '@/utils/categories';
 import { formatCurrency } from '@/utils/format';
-import { useFocusEffect } from 'expo-router';
-import { ArrowDownRight, ArrowUpRight, ChartColumnBig, WalletCards } from 'lucide-react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import {
+  addMonths,
+  eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
+  format,
+  isSameMonth,
+  startOfMonth,
+  startOfWeek,
+  subMonths,
+} from 'date-fns';
+import { ChevronDown, ChevronLeft, ChevronRight, Search } from 'lucide-react-native';
 import React, { useCallback, useMemo, useState } from 'react';
-import { LineChart, PieChart, type lineDataItem, type pieDataItem } from 'react-native-gifted-charts';
+import { PieChart, type pieDataItem } from 'react-native-gifted-charts';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const periods: { label: string; value: 'week' | 'month' | 'year' }[] = [
-  { label: '近7天', value: 'week' },
-  { label: '本月', value: 'month' },
-  { label: '今年', value: 'year' },
-];
+const WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
 
-const categoryTypes: { label: string; value: 'expense' | 'income' }[] = [
-  { label: '支出', value: 'expense' },
-  { label: '收入', value: 'income' },
-];
+function formatMonthKey(date: Date): string {
+  return format(startOfMonth(date), 'yyyy-MM');
+}
 
 function getCategoryColor(categoryName: string, type: 'expense' | 'income'): string {
   return getCategoryByName(categoryName, type).color;
+}
+
+function buildCalendarDays(monthDate: Date): Date[] {
+  const start = startOfWeek(startOfMonth(monthDate), { weekStartsOn: 1 });
+  const end = endOfWeek(endOfMonth(monthDate), { weekStartsOn: 1 });
+  return eachDayOfInterval({ start, end });
 }
 
 export default function StatsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { width } = useWindowDimensions();
-  const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'year'>('month');
+  const router = useRouter();
+
+  const [selectedMonthDate, setSelectedMonthDate] = useState(() => startOfMonth(new Date()));
   const [selectedCategoryType, setSelectedCategoryType] = useState<'expense' | 'income'>('expense');
 
+  const selectedMonth = useMemo(() => formatMonthKey(selectedMonthDate), [selectedMonthDate]);
+
   const {
-    periodSummary,
-    trendSummary,
+    monthlySummary,
+    monthlyTrendSummary,
+    monthlyRecentTransactions,
     categorySummary,
-    fetchCategorySummary,
-    fetchPeriodSummary,
-    fetchTrendSummary,
+    fetchMonthlySummary,
+    fetchMonthlyTrendSummary,
+    fetchMonthlyCategorySummary,
+    fetchMonthlyRecentTransactions,
   } = useTransactionStore();
 
   const loadStats = useCallback(() => {
     return Promise.all([
-      fetchPeriodSummary(selectedPeriod),
-      fetchTrendSummary(selectedPeriod),
-      fetchCategorySummary(selectedCategoryType, selectedPeriod),
+      fetchMonthlySummary(selectedMonth),
+      fetchMonthlyTrendSummary(selectedMonth),
+      fetchMonthlyCategorySummary(selectedCategoryType, selectedMonth),
+      fetchMonthlyRecentTransactions(selectedMonth, 6),
     ]);
-  }, [fetchCategorySummary, fetchPeriodSummary, fetchTrendSummary, selectedCategoryType, selectedPeriod]);
+  }, [
+    fetchMonthlyCategorySummary,
+    fetchMonthlyRecentTransactions,
+    fetchMonthlySummary,
+    fetchMonthlyTrendSummary,
+    selectedCategoryType,
+    selectedMonth,
+  ]);
 
   useFocusEffect(
     useCallback(() => {
@@ -55,30 +82,9 @@ export default function StatsScreen() {
     }, [loadStats])
   );
 
-  const trendChartWidth = Math.max(width - 84, 260);
-  const trendMaxValue = useMemo(() => {
-    const max = trendSummary.reduce((currentMax, item) => {
-      return Math.max(currentMax, item.income, item.expense);
-    }, 0);
-
-    return max > 0 ? Math.ceil(max * 1.2) : 100;
-  }, [trendSummary]);
-
-  const expenseLineData = useMemo<lineDataItem[]>(() => {
-    return trendSummary.map((item) => ({
-      value: item.expense,
-      label: item.label,
-      dataPointColor: colors.expense,
-    }));
-  }, [colors.expense, trendSummary]);
-
-  const incomeLineData = useMemo<lineDataItem[]>(() => {
-    return trendSummary.map((item) => ({
-      value: item.income,
-      label: item.label,
-      dataPointColor: colors.income,
-    }));
-  }, [colors.income, trendSummary]);
+  const maxExpense = useMemo(() => {
+    return monthlyTrendSummary.reduce((max, item) => Math.max(max, item.expense), 0);
+  }, [monthlyTrendSummary]);
 
   const pieData = useMemo<pieDataItem[]>(() => {
     return categorySummary.map((item) => ({
@@ -87,225 +93,246 @@ export default function StatsScreen() {
     }));
   }, [categorySummary, selectedCategoryType]);
 
-  const hasTrendData = trendSummary.some((item) => item.income > 0 || item.expense > 0);
+  const calendarDays = useMemo(() => buildCalendarDays(selectedMonthDate), [selectedMonthDate]);
+  const expenseMap = useMemo(() => {
+    return new Map(monthlyTrendSummary.map((item) => [item.day, item.expense]));
+  }, [monthlyTrendSummary]);
+  const currentMonthTotal = selectedCategoryType === 'expense' ? monthlySummary.expense : monthlySummary.income;
   const hasCategoryData = categorySummary.length > 0;
+  const hasMonthlyTransactions = monthlyRecentTransactions.length > 0;
+  const chartWidth = Math.max(width - 84, 260);
+  const barGap = monthlyTrendSummary.length > 0 ? 4 : 0;
+  const barWidth = monthlyTrendSummary.length > 0
+    ? Math.max(6, Math.floor((chartWidth - ((monthlyTrendSummary.length - 1) * barGap)) / monthlyTrendSummary.length))
+    : 8;
+
+  const handleAddTransaction = () => router.push('/add-transaction');
+  const handleQuickInput = () => router.push('/add-transaction?input=text');
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>趋势与分类分析</Text>
-          <Text style={[styles.title, { color: colors.text }]}>统计</Text>
-        </View>
-
-        <View style={styles.periodSelector}>
-          {periods.map((period) => {
-            const isActive = selectedPeriod === period.value;
-            return (
-              <TouchableOpacity
-                key={period.value}
-                style={[
-                  styles.periodButton,
-                  {
-                    backgroundColor: isActive ? colors.primary : colors.card,
-                    borderColor: isActive ? colors.primary : colors.border,
-                  },
-                ]}
-                onPress={() => setSelectedPeriod(period.value)}
-              >
-                <Text style={[styles.periodText, { color: isActive ? '#FFF' : colors.textSecondary }]}>
-                  {period.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        <View style={styles.summaryGrid}>
-          <View style={[styles.summaryItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={[styles.summaryIconWrap, { backgroundColor: `${colors.income}14` }]}>
-              <ArrowUpRight size={18} color={colors.income} />
-            </View>
-            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>本期收入</Text>
-            <Text style={[styles.summaryAmount, { color: colors.text }]}>{formatCurrency(periodSummary.income)}</Text>
-          </View>
-          <View style={[styles.summaryItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={[styles.summaryIconWrap, { backgroundColor: `${colors.expense}14` }]}>
-              <ArrowDownRight size={18} color={colors.expense} />
-            </View>
-            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>本期支出</Text>
-            <Text style={[styles.summaryAmount, { color: colors.text }]}>{formatCurrency(periodSummary.expense)}</Text>
-          </View>
-          <View style={[styles.summaryItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={[styles.summaryIconWrap, { backgroundColor: `${colors.primary}14` }]}>
-              <WalletCards size={18} color={colors.primary} />
-            </View>
-            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>净结余</Text>
-            <Text
-              style={[
-                styles.summaryAmount,
-                { color: periodSummary.net >= 0 ? colors.income : colors.expense },
-              ]}
+          <Text style={[styles.pageTitle, { color: colors.text }]}>洞察</Text>
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={[styles.headerIconButton, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Search size={18} color={colors.text} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.filterChip, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => setSelectedCategoryType((current) => (current === 'expense' ? 'income' : 'expense'))}
             >
-              {formatCurrency(periodSummary.net, true)}
-            </Text>
+              <Text style={[styles.filterChipText, { color: colors.text }]}>
+                {selectedCategoryType === 'expense' ? '支出' : '收入'}
+              </Text>
+              <ChevronDown size={14} color={colors.textSecondary} />
+            </TouchableOpacity>
           </View>
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.sectionHeader}>
-            <View>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>收支趋势</Text>
-              <Text style={[styles.sectionDesc, { color: colors.textSecondary }]}>
-                {selectedPeriod === 'year' ? '按月查看收入与支出的变化' : '按日查看当前周期的收支变化'}
-              </Text>
+        <View style={[styles.heroCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.heroTopRow}>
+            <View style={styles.monthSwitch}>
+              <TouchableOpacity
+                style={[styles.monthNavButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+                onPress={() => setSelectedMonthDate((current) => subMonths(current, 1))}
+              >
+                <ChevronLeft size={16} color={colors.textSecondary} />
+              </TouchableOpacity>
+              <Text style={[styles.heroMonthText, { color: colors.text }]}>{format(selectedMonthDate, 'M月')}</Text>
+              <TouchableOpacity
+                style={[styles.monthNavButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+                onPress={() => setSelectedMonthDate((current) => addMonths(current, 1))}
+              >
+                <ChevronRight size={16} color={colors.textSecondary} />
+              </TouchableOpacity>
             </View>
-            <View style={styles.legendRow}>
-              <View style={styles.legendPill}>
-                <View style={[styles.legendDot, { backgroundColor: colors.income }]} />
-                <Text style={[styles.legendLabel, { color: colors.textSecondary }]}>收入</Text>
-              </View>
-              <View style={styles.legendPill}>
-                <View style={[styles.legendDot, { backgroundColor: colors.expense }]} />
-                <Text style={[styles.legendLabel, { color: colors.textSecondary }]}>支出</Text>
-              </View>
+
+            <View style={styles.heroRightInfo}>
+              <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>月均支出</Text>
+              <Text style={[styles.metricValue, { color: colors.expense }]}>
+                {formatCurrency(monthlySummary.averageExpense)}
+              </Text>
             </View>
           </View>
 
-          {hasTrendData ? (
-            <LineChart
-              areaChart
-              curved
-              data={expenseLineData}
-              data2={incomeLineData}
-              color={colors.expense}
-              color2={colors.income}
-              startFillColor={colorScheme === 'dark' ? 'rgba(255,112,67,0.28)' : 'rgba(238,107,115,0.18)'}
-              endFillColor={colorScheme === 'dark' ? 'rgba(255,112,67,0.02)' : 'rgba(238,107,115,0.02)'}
-              startFillColor2={colorScheme === 'dark' ? 'rgba(102,187,106,0.24)' : 'rgba(46,166,125,0.16)'}
-              endFillColor2={colorScheme === 'dark' ? 'rgba(102,187,106,0.02)' : 'rgba(46,166,125,0.02)'}
-              initialSpacing={12}
-              endSpacing={12}
-              spacing={Math.max(Math.floor((trendChartWidth - 24) / Math.max(trendSummary.length, 1)), 28)}
-              hideDataPoints
-              thickness={3}
-              thickness2={3}
-              noOfSections={4}
-              maxValue={trendMaxValue}
-              width={trendChartWidth}
-              height={220}
-              yAxisColor={colors.border}
-              xAxisColor={colors.border}
-              rulesColor={colors.border}
-              yAxisTextStyle={{ color: colors.textSecondary, fontSize: 12 }}
-              xAxisLabelTextStyle={{ color: colors.textSecondary, fontSize: 12 }}
-            />
-          ) : (
-            <View style={styles.emptyModule}>
-              <ChartColumnBig size={28} color={colors.textSecondary} />
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>当前周期暂无趋势数据</Text>
-              <Text style={[styles.emptyDesc, { color: colors.textSecondary }]}>
-                新增几笔账单后，这里会显示收入和支出的变化趋势。
-              </Text>
-            </View>
-          )}
-        </View>
+          <Text style={[styles.heroAmount, { color: colors.primary }]}>
+            {formatCurrency(monthlySummary.expense)}
+          </Text>
 
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.sectionHeader}>
-            <View>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>分类分析</Text>
-              <Text style={[styles.sectionDesc, { color: colors.textSecondary }]}>查看分类占比和金额分布</Text>
-            </View>
-            <View style={styles.typeSelector}>
-              {categoryTypes.map((item) => {
-                const isActive = selectedCategoryType === item.value;
+          <View style={styles.barChartWrap}>
+            <View style={[styles.barBaseline, { backgroundColor: colors.border }]} />
+            <View style={styles.barRow}>
+              {monthlyTrendSummary.map((item, index) => {
+                const barHeight = maxExpense > 0 ? Math.max(8, (item.expense / maxExpense) * 118) : 8;
+                const isHighlighted = index === new Date().getDate() - 1 && isSameMonth(selectedMonthDate, new Date());
                 return (
-                  <TouchableOpacity
-                    key={item.value}
-                    style={[
-                      styles.typeButton,
-                      {
-                        backgroundColor: isActive ? colors.primaryLight : colors.background,
-                        borderColor: isActive ? colors.primary : colors.border,
-                      },
-                    ]}
-                    onPress={() => setSelectedCategoryType(item.value)}
-                  >
-                    <Text style={[styles.typeButtonText, { color: isActive ? colors.primary : colors.textSecondary }]}>
-                      {item.label}
-                    </Text>
-                  </TouchableOpacity>
+                  <View key={`${selectedMonth}-${item.day}`} style={[styles.barItem, { width: barWidth }]}>
+                    <View
+                      style={[
+                        styles.bar,
+                        {
+                          height: barHeight,
+                          backgroundColor: item.expense > 0 ? (isHighlighted ? colors.primary : `${colors.primary}66`) : colors.border,
+                          width: barWidth,
+                        },
+                      ]}
+                    />
+                    {index % 5 === 0 || index === monthlyTrendSummary.length - 1 ? (
+                      <Text style={[styles.barLabel, { color: isHighlighted ? colors.primary : colors.textSecondary }]}>
+                        {item.day}
+                      </Text>
+                    ) : (
+                      <View style={styles.barLabelSpacer} />
+                    )}
+                  </View>
                 );
               })}
             </View>
           </View>
 
-          {hasCategoryData ? (
-            <>
-              <View style={styles.categoryChartWrap}>
-                <PieChart
-                  data={pieData}
-                  donut
-                  radius={96}
-                  innerRadius={62}
-                  strokeWidth={0}
-                  innerCircleColor={colors.card}
-                  centerLabelComponent={() => (
-                    <View style={styles.pieCenter}>
-                      <Text style={[styles.pieCenterLabel, { color: colors.textSecondary }]}>
-                        {selectedCategoryType === 'expense' ? '支出' : '收入'}
-                      </Text>
-                      <Text style={[styles.pieCenterAmount, { color: colors.text }]}>
-                        {formatCurrency(
-                          categorySummary.reduce((sum, item) => sum + item.total, 0)
-                        )}
-                      </Text>
-                    </View>
-                  )}
-                />
-              </View>
+          <View style={[styles.heroFooter, { borderTopColor: colors.border }]}>
+            <Text style={[styles.heroFooterLabel, { color: colors.textSecondary }]}>今年总支出</Text>
+            <Text style={[styles.heroFooterValue, { color: colors.text }]}>
+              {formatCurrency(monthlySummary.yearExpense)}
+            </Text>
+          </View>
+        </View>
 
-              <View style={styles.categoryList}>
-                {categorySummary.map((item) => {
-                  const categoryColor = getCategoryColor(item.category, selectedCategoryType);
-                  return (
-                    <View key={`${selectedCategoryType}-${item.category}`} style={styles.categoryRow}>
-                      <View style={styles.categoryInfo}>
-                        <View style={[styles.categoryDot, { backgroundColor: categoryColor }]} />
-                        <View style={styles.categoryTextWrap}>
-                          <Text style={[styles.categoryName, { color: colors.text }]}>{item.category}</Text>
-                          <Text style={[styles.categoryPercent, { color: colors.textSecondary }]}>
-                            占比 {item.percent ?? 0}%
-                          </Text>
-                        </View>
-                      </View>
-                      <Text
-                        style={[
-                          styles.categoryAmount,
-                          { color: selectedCategoryType === 'expense' ? colors.expense : colors.income },
-                        ]}
-                      >
-                        {selectedCategoryType === 'expense' ? '-' : '+'}
-                        {formatCurrency(item.total).replace('¥', '¥')}
-                      </Text>
-                    </View>
-                  );
-                })}
-              </View>
-            </>
-          ) : (
-            <View style={styles.emptyModule}>
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                当前周期暂无{selectedCategoryType === 'expense' ? '支出' : '收入'}分类数据
+        <View style={styles.dualRow}>
+          <View style={[styles.smallCard, styles.calendarCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>支出日历</Text>
+            <View style={styles.weekLabelRow}>
+              {WEEKDAY_LABELS.map((label) => (
+                <Text key={label} style={[styles.weekLabel, { color: colors.textSecondary }]}>
+                  {label}
+                </Text>
+              ))}
+            </View>
+            <View style={styles.calendarGrid}>
+              {calendarDays.map((day) => {
+                const dayNumber = Number(format(day, 'd'));
+                const expense = isSameMonth(day, selectedMonthDate) ? expenseMap.get(dayNumber) ?? 0 : 0;
+                const opacity = maxExpense > 0 ? Math.max(0.12, expense / maxExpense) : 0.12;
+                const isCurrentMonth = isSameMonth(day, selectedMonthDate);
+
+                return (
+                  <View
+                    key={day.toISOString()}
+                    style={[
+                      styles.calendarCell,
+                      {
+                        backgroundColor: isCurrentMonth && expense > 0 ? `rgba(91,168,255,${opacity})` : colors.background,
+                        borderColor: isCurrentMonth && expense > 0 ? `${colors.primary}44` : colors.border,
+                      },
+                    ]}
+                  />
+                );
+              })}
+            </View>
+            <View style={styles.calendarFooter}>
+              <Text style={[styles.calendarCount, { color: colors.text }]}>{monthlySummary.transactionCount}</Text>
+              <Text style={[styles.calendarUnit, { color: colors.textSecondary }]}>笔</Text>
+            </View>
+          </View>
+
+          <View style={[styles.smallCard, styles.categoryCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.categoryHeader}>
+              <Text style={[styles.cardTitle, { color: colors.text }]}>分类占比</Text>
+              <Text style={[styles.categoryScope, { color: colors.textSecondary }]}>
+                占当月总{selectedCategoryType === 'expense' ? '支出' : '收入'}
               </Text>
-              <Text style={[styles.emptyDesc, { color: colors.textSecondary }]}>
-                切换周期或新增对应类型账单后，这里会自动更新。
+            </View>
+            {hasCategoryData ? (
+              <>
+                <View style={styles.donutWrap}>
+                  <PieChart
+                    data={pieData}
+                    donut
+                    radius={52}
+                    innerRadius={34}
+                    innerCircleColor={colors.card}
+                    strokeWidth={0}
+                    centerLabelComponent={() => (
+                      <View style={styles.donutCenter}>
+                        <Text style={[styles.donutTotal, { color: colors.text }]}>
+                          {formatCurrency(currentMonthTotal).replace('.00', '')}
+                        </Text>
+                      </View>
+                    )}
+                  />
+                </View>
+                <View style={styles.categoryMiniList}>
+                  {categorySummary.slice(0, 3).map((item) => {
+                    const categoryColor = getCategoryColor(item.category, selectedCategoryType);
+                    return (
+                      <View key={item.category} style={styles.categoryMiniRow}>
+                        <View style={[styles.categoryDot, { backgroundColor: categoryColor }]} />
+                        <Text style={[styles.categoryMiniName, { color: colors.text }]} numberOfLines={1}>
+                          {item.category}
+                        </Text>
+                        <Text style={[styles.categoryMiniPercent, { color: colors.textSecondary }]}>
+                          {item.percent ?? 0}%
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </>
+            ) : (
+              <View style={styles.smallEmptyState}>
+                <Text style={[styles.smallEmptyText, { color: colors.textSecondary }]}>暂无分类数据</Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        <View style={[styles.flowCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.flowHeader}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>账单流水</Text>
+            <View style={styles.flowHeadLabels}>
+              <Text style={[styles.flowHeadText, { color: colors.textSecondary }]}>金额</Text>
+              <Text style={[styles.flowHeadText, { color: colors.textSecondary }]}>时间</Text>
+            </View>
+          </View>
+
+          {hasMonthlyTransactions ? (
+            monthlyRecentTransactions.map((transaction) => (
+              <View key={transaction.id} style={[styles.flowRow, { borderTopColor: colors.border }]}>
+                <View style={styles.flowMain}>
+                  <Text style={[styles.flowTitle, { color: colors.text }]} numberOfLines={1}>
+                    {transaction.category}
+                  </Text>
+                  <Text style={[styles.flowDesc, { color: colors.textSecondary }]} numberOfLines={1}>
+                    {transaction.description || transaction.account_name || '未填写备注'}
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    styles.flowAmount,
+                    { color: transaction.type === 'expense' ? colors.expense : colors.income },
+                  ]}
+                >
+                  {transaction.type === 'expense' ? '-' : '+'}
+                  {formatCurrency(transaction.amount).replace('¥', '¥')}
+                </Text>
+                <Text style={[styles.flowTime, { color: colors.textSecondary }]}>
+                  {format(new Date(transaction.date), 'MM/dd')}
+                </Text>
+              </View>
+            ))
+          ) : (
+            <View style={styles.flowEmptyState}>
+              <Text style={[styles.flowEmptyTitle, { color: colors.text }]}>暂无账单</Text>
+              <Text style={[styles.flowEmptyDesc, { color: colors.textSecondary }]}>
+                当前月份还没有记账记录
               </Text>
             </View>
           )}
         </View>
       </ScrollView>
+
+      <FloatingActionButton onAddTransaction={handleAddTransaction} onQuickInput={handleQuickInput} />
     </SafeAreaView>
   );
 }
@@ -315,184 +342,312 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 32,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 120,
+    gap: 14,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-  },
-  subtitle: {
-    fontSize: 14,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginTop: 4,
-  },
-  periodSelector: {
     flexDirection: 'row',
-    marginHorizontal: 20,
-    marginTop: 20,
-    gap: 10,
-  },
-  periodButton: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  periodText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  summaryGrid: {
-    marginTop: 18,
-    paddingHorizontal: 20,
-    gap: 12,
-  },
-  summaryItem: {
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 16,
-  },
-  summaryIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
   },
-  summaryLabel: {
-    fontSize: 13,
-  },
-  summaryAmount: {
-    marginTop: 6,
+  pageTitle: {
     fontSize: 22,
     fontWeight: '700',
   },
-  card: {
-    marginHorizontal: 20,
-    marginTop: 18,
-    borderRadius: 24,
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  headerIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+  },
+  filterChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  heroCard: {
+    borderRadius: 28,
     borderWidth: 1,
     padding: 18,
   },
-  sectionHeader: {
+  heroTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     gap: 12,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  sectionDesc: {
-    marginTop: 4,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  legendRow: {
-    flexDirection: 'row',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  legendPill: {
+  monthSwitch: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 10,
   },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  emptyModule: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
-    gap: 8,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  emptyDesc: {
-    fontSize: 13,
-    lineHeight: 18,
-    textAlign: 'center',
-    maxWidth: 260,
-  },
-  typeSelector: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  typeButton: {
-    borderRadius: 999,
+  monthNavButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  typeButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  categoryChartWrap: {
-    alignItems: 'center',
-    marginTop: 18,
-  },
-  pieCenter: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pieCenterLabel: {
+  heroMonthText: {
+    fontSize: 26,
+    fontWeight: '700',
+  },
+  heroRightInfo: {
+    alignItems: 'flex-end',
+  },
+  metricLabel: {
     fontSize: 12,
     fontWeight: '500',
   },
-  pieCenterAmount: {
+  metricValue: {
     marginTop: 4,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
   },
-  categoryList: {
-    marginTop: 18,
-    gap: 12,
+  heroAmount: {
+    marginTop: 10,
+    fontSize: 36,
+    fontWeight: '800',
   },
-  categoryRow: {
+  barChartWrap: {
+    marginTop: 18,
+  },
+  barBaseline: {
+    height: 1,
+    width: '100%',
+    position: 'absolute',
+    bottom: 24,
+  },
+  barRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    height: 150,
+    gap: 4,
+  },
+  barItem: {
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    flexShrink: 1,
+  },
+  bar: {
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    minHeight: 8,
+  },
+  barLabel: {
+    marginTop: 8,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  barLabelSpacer: {
+    marginTop: 8,
+    height: 14,
+  },
+  heroFooter: {
+    marginTop: 18,
+    paddingTop: 14,
+    borderTopWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
   },
-  categoryInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
+  heroFooterLabel: {
+    fontSize: 13,
   },
-  categoryDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  categoryTextWrap: {
-    marginLeft: 10,
-    flex: 1,
-  },
-  categoryName: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  categoryPercent: {
-    marginTop: 2,
-    fontSize: 12,
-  },
-  categoryAmount: {
+  heroFooterValue: {
     fontSize: 15,
     fontWeight: '700',
+  },
+  dualRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  smallCard: {
+    flex: 1,
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 16,
+    minHeight: 220,
+  },
+  calendarCard: {
+    justifyContent: 'space-between',
+  },
+  categoryCard: {
+    justifyContent: 'space-between',
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  weekLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    marginBottom: 10,
+  },
+  weekLabel: {
+    width: 18,
+    textAlign: 'center',
+    fontSize: 10,
+    fontWeight: '500',
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  calendarCell: {
+    width: 18,
+    height: 18,
+    borderRadius: 5,
+    borderWidth: 1,
+  },
+  calendarFooter: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    marginTop: 12,
+    gap: 4,
+  },
+  calendarCount: {
+    fontSize: 28,
+    fontWeight: '800',
+  },
+  calendarUnit: {
+    paddingBottom: 5,
+    fontSize: 14,
+  },
+  categoryHeader: {
+    gap: 4,
+  },
+  categoryScope: {
+    fontSize: 12,
+  },
+  donutWrap: {
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  donutCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 72,
+  },
+  donutTotal: {
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  categoryMiniList: {
+    marginTop: 14,
+    gap: 10,
+  },
+  categoryMiniRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  categoryDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  categoryMiniName: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  categoryMiniPercent: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  smallEmptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  smallEmptyText: {
+    fontSize: 13,
+  },
+  flowCard: {
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 16,
+  },
+  flowHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  flowHeadLabels: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 26,
+  },
+  flowHeadText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  flowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderTopWidth: 1,
+    gap: 10,
+  },
+  flowMain: {
+    flex: 1,
+    minWidth: 0,
+  },
+  flowTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  flowDesc: {
+    marginTop: 3,
+    fontSize: 12,
+  },
+  flowAmount: {
+    width: 86,
+    textAlign: 'right',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  flowTime: {
+    width: 44,
+    textAlign: 'right',
+    fontSize: 12,
+  },
+  flowEmptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  flowEmptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  flowEmptyDesc: {
+    marginTop: 8,
+    fontSize: 13,
   },
 });
