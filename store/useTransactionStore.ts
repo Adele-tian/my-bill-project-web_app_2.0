@@ -232,6 +232,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
   addTransaction: async (transaction) => {
     try {
       const id = await db.createTransaction(transaction);
+      await get().fetchTransactions();
       await get().fetchRecentTransactions();
       await get().fetchSummary();
       return id;

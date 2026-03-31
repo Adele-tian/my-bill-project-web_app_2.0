@@ -19,7 +19,7 @@ export function HomeClueItem({ transaction, onEdit, onDelete }: HomeClueItemProp
   const colors = Colors[colorScheme ?? 'light'];
   const [showMenu, setShowMenu] = useState(false);
   const category = getCategoryByName(transaction.category, transaction.type);
-  const emotion = getHomeEmotion(transaction.category);
+  const emotion = getHomeEmotion(transaction.category, transaction.description);
   const categoryCopy = getHomeCategoryCopy(transaction.category);
 
   const IconComponent = (LucideIcons as any)[

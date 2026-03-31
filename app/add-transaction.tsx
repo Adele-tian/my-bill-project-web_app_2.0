@@ -16,6 +16,13 @@ import { useAccountStore } from '@/store/useAccountStore';
 import { useTransactionStore } from '@/store/useTransactionStore';
 import { getTransactionEntryPreferences, saveTransactionEntryPreferences } from '@/utils/transaction-entry-preferences';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '@/utils/categories';
+import {
+  buildDescriptionWithEmotion,
+  getEmotionMeta,
+  parseEmotionFromDescription,
+  stripEmotionFromDescription,
+  type EmotionKey,
+} from '@/utils/home-clues';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Sparkles, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -42,7 +49,10 @@ type FormState = {
   selectedAccountId: number | null;
   description: string;
   entryDate: string;
+  selectedEmotion: EmotionKey | null;
 };
+
+const EMOTION_OPTIONS: EmotionKey[] = ['super_happy', 'impulsive', 'lesson_learned'];
 
 function getDefaultCategory(type: TransactionType): CategoryOption {
   return type === 'income' ? INCOME_CATEGORIES[0] : EXPENSE_CATEGORIES[0];
@@ -57,6 +67,7 @@ function createFormState(overrides: Partial<FormState> = {}): FormState {
     selectedAccountId: overrides.selectedAccountId ?? null,
     description: overrides.description ?? '',
     entryDate: overrides.entryDate ?? new Date().toISOString(),
+    selectedEmotion: overrides.selectedEmotion ?? null,
   };
 }
 
@@ -97,7 +108,7 @@ export default function AddTransactionScreen() {
   const isQuickInputMode = Boolean(input) && !isEditMode;
 
   const { selectableAccounts, fetchAccounts } = useAccountStore();
-  const { addTransaction, updateTransaction, getTransactionById, fetchRecentTransactions, fetchSummary } = useTransactionStore();
+  const { addTransaction, updateTransaction, getTransactionById, fetchTransactions, fetchRecentTransactions, fetchSummary } = useTransactionStore();
 
   const amountInputRef = useRef<TextInput | null>(null);
   const autoHandledInputRef = useRef<string | null>(null);
@@ -165,6 +176,7 @@ export default function AddTransactionScreen() {
         entryDate: draft.date || current.entryDate,
         selectedCategory: matchedCategory,
         selectedAccountId: nextAccountId,
+        selectedEmotion: current.selectedEmotion,
       });
     });
   }, [selectableAccounts]);
@@ -180,9 +192,10 @@ export default function AddTransactionScreen() {
           type: transaction.type,
           amount: transaction.amount.toString(),
           selectedAccountId: transaction.account_id,
-          description: transaction.description,
+          description: stripEmotionFromDescription(transaction.description),
           entryDate: transaction.date,
           selectedCategory: category,
+          selectedEmotion: parseEmotionFromDescription(transaction.description),
         });
         setInitialValues(nextInitialValues);
         setForm(nextInitialValues);
@@ -229,13 +242,13 @@ export default function AddTransactionScreen() {
   const closeToHome = useCallback(async () => {
     await Promise.all([
       fetchAccounts(),
-      fetchRecentTransactions(5),
+      fetchTransactions(),
+      fetchRecentTransactions(8),
       fetchSummary(),
     ]);
 
-    router.dismissAll();
-    router.replace('/');
-  }, [fetchAccounts, fetchRecentTransactions, fetchSummary, router]);
+    router.replace('/(tabs)');
+  }, [fetchAccounts, fetchTransactions, fetchRecentTransactions, fetchSummary, router]);
 
   const handleSave = async () => {
     if (isSaveDisabled) {
@@ -254,7 +267,7 @@ export default function AddTransactionScreen() {
           category_icon: form.selectedCategory.icon,
           account_id: form.selectedAccountId!,
           date: form.entryDate || new Date().toISOString(),
-          description: form.description || form.selectedCategory.name,
+          description: buildDescriptionWithEmotion(form.description || form.selectedCategory.name, form.selectedEmotion),
         });
         saveTransactionEntryPreferences({
           lastAccountId: form.selectedAccountId,
@@ -269,7 +282,7 @@ export default function AddTransactionScreen() {
           category_icon: form.selectedCategory.icon,
           account_id: form.selectedAccountId!,
           date: form.entryDate || new Date().toISOString(),
-          description: form.description || form.selectedCategory.name,
+          description: buildDescriptionWithEmotion(form.description || form.selectedCategory.name, form.selectedEmotion),
         });
         saveTransactionEntryPreferences({
           lastAccountId: form.selectedAccountId,
@@ -563,6 +576,49 @@ export default function AddTransactionScreen() {
           </View>
         </View>
         <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>备注</Text>
+          <View style={styles.descRow}>
+            <TextInput
+              style={[styles.descInput, { color: colors.text, borderColor: colors.border }]}
+              placeholder="添加备注..."
+              placeholderTextColor={colors.textSecondary}
+              value={form.description}
+              onChangeText={(description) => updateForm({ description })}
+            />
+            <View style={styles.emotionPicker}>
+              {EMOTION_OPTIONS.map((emotionKey) => {
+                const meta = getEmotionMeta(emotionKey);
+                const isSelected = form.selectedEmotion === emotionKey;
+
+                return (
+                  <TouchableOpacity
+                    key={emotionKey}
+                    style={[
+                      styles.emotionButton,
+                      {
+                        backgroundColor: isSelected ? colors.primaryLight : colors.background,
+                        borderColor: isSelected ? colors.primary : colors.border,
+                      },
+                    ]}
+                    onPress={() =>
+                      updateForm({
+                        selectedEmotion: isSelected ? null : emotionKey,
+                      })
+                    }
+                  >
+                    {isSelected ? (
+                      <View style={[styles.emotionBubble, { backgroundColor: colors.primary }]}>
+                        <Text style={styles.emotionBubbleText}>{meta.label}</Text>
+                      </View>
+                    ) : null}
+                    <Text style={[styles.emotionIcon, { opacity: isSelected ? 1 : 0.38 }]}>{meta.emoji}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>账户</Text>
           <View style={styles.optionGrid}>
             {selectableAccounts.map((account) => {
@@ -598,16 +654,6 @@ export default function AddTransactionScreen() {
             selectedCategory={form.selectedCategory.name}
             onSelect={(category) => updateForm({ selectedCategory: category as CategoryOption })}
             compact
-          />
-        </View>
-        <View style={[styles.section, { backgroundColor: colors.card }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>备注</Text>
-          <TextInput
-            style={[styles.descInput, { color: colors.text, borderColor: colors.border }]}
-            placeholder="添加备注..."
-            placeholderTextColor={colors.textSecondary}
-            value={form.description}
-            onChangeText={(description) => updateForm({ description })}
           />
         </View>
         <View style={styles.footer}>
@@ -686,7 +732,36 @@ const styles = StyleSheet.create({
   optionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   optionChip: { borderRadius: 999, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 10 },
   optionChipText: { fontSize: 14, fontWeight: '600' },
-  descInput: { borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 16 },
+  descRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  descInput: { flex: 1, borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 16, minHeight: 48 },
+  emotionPicker: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingRight: 2 },
+  emotionButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  emotionIcon: { fontSize: 18 },
+  emotionBubble: {
+    position: 'absolute',
+    top: -38,
+    minWidth: 54,
+    paddingHorizontal: 10,
+    minHeight: 26,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  emotionBubbleText: { color: '#FFF', fontSize: 11, fontWeight: '700', textAlign: 'center' },
   footer: { paddingHorizontal: 20, paddingTop: 4 },
   footerText: { fontSize: 13, lineHeight: 18 },
 });

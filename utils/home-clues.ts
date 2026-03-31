@@ -1,6 +1,9 @@
+export type EmotionKey = 'super_happy' | 'impulsive' | 'lesson_learned';
+
 type HomeEmotion = {
   emoji: string;
   label: string;
+  key?: EmotionKey;
 };
 
 const DEFAULT_HEADLINES = [
@@ -25,11 +28,17 @@ const CATEGORY_COPY_MAP: Record<string, string> = {
   其他: '日常线索',
 };
 
+const EMOTION_META: Record<EmotionKey, HomeEmotion> = {
+  super_happy: { key: 'super_happy', emoji: '🥰', label: '超满足' },
+  impulsive: { key: 'impulsive', emoji: '🤯', label: '上头了' },
+  lesson_learned: { key: 'lesson_learned', emoji: '🤡', label: '买教训' },
+};
+
 const CATEGORY_EMOTION_MAP: Record<string, HomeEmotion> = {
-  餐饮: { emoji: '🍜', label: '上头了' },
+  餐饮: EMOTION_META.impulsive,
   娱乐: { emoji: '🎮', label: '超开心' },
   红包: { emoji: '🧧', label: '好兆头' },
-  购物: { emoji: '🛍️', label: '超满足' },
+  购物: EMOTION_META.super_happy,
   居家: { emoji: '🏡', label: '稳稳的' },
   通讯: { emoji: '📱', label: '安排好' },
   交通: { emoji: '🚌', label: '在路上' },
@@ -43,6 +52,8 @@ const CATEGORY_EMOTION_MAP: Record<string, HomeEmotion> = {
   其他: { emoji: '🌿', label: '慢慢来' },
 };
 
+const EMOTION_PATTERN = /\[emotion:(super_happy|impulsive|lesson_learned)\]\s*/;
+
 export function getHomeHeadline(index = 0): string {
   return DEFAULT_HEADLINES[index] ?? DEFAULT_HEADLINES[0];
 }
@@ -51,6 +62,34 @@ export function getHomeCategoryCopy(category: string): string {
   return CATEGORY_COPY_MAP[category] ?? '日常线索';
 }
 
-export function getHomeEmotion(category: string): HomeEmotion {
+export function getEmotionMeta(emotionKey: EmotionKey): HomeEmotion {
+  return EMOTION_META[emotionKey];
+}
+
+export function parseEmotionFromDescription(description: string): EmotionKey | null {
+  const match = description.match(EMOTION_PATTERN);
+  return (match?.[1] as EmotionKey | undefined) ?? null;
+}
+
+export function stripEmotionFromDescription(description: string): string {
+  return description.replace(EMOTION_PATTERN, '').trim();
+}
+
+export function buildDescriptionWithEmotion(rawDescription: string, emotion: EmotionKey | null): string {
+  const cleanDescription = stripEmotionFromDescription(rawDescription);
+  if (!emotion) {
+    return cleanDescription;
+  }
+
+  const marker = `[emotion:${emotion}]`;
+  return cleanDescription ? `${marker} ${cleanDescription}` : marker;
+}
+
+export function getHomeEmotion(category: string, description = ''): HomeEmotion {
+  const explicitEmotion = parseEmotionFromDescription(description);
+  if (explicitEmotion) {
+    return getEmotionMeta(explicitEmotion);
+  }
+
   return CATEGORY_EMOTION_MAP[category] ?? { emoji: '🌿', label: '慢慢来' };
 }
