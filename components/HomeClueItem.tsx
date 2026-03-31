@@ -10,16 +10,17 @@ import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface HomeClueItemProps {
   transaction: Transaction;
+  transactionHistory?: Transaction[];
   onEdit?: (transaction: Transaction) => void;
   onDelete?: (id: number) => void;
 }
 
-export function HomeClueItem({ transaction, onEdit, onDelete }: HomeClueItemProps) {
+export function HomeClueItem({ transaction, transactionHistory = [], onEdit, onDelete }: HomeClueItemProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [showMenu, setShowMenu] = useState(false);
   const category = getCategoryByName(transaction.category, transaction.type);
-  const emotion = getHomeEmotion(transaction.category, transaction.description);
+  const emotion = getHomeEmotion(transaction, transactionHistory);
   const categoryCopy = getHomeCategoryCopy(transaction.category);
 
   const IconComponent = (LucideIcons as any)[

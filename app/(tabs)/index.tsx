@@ -97,6 +97,7 @@ export default function HomeScreen() {
               >
                 <HomeClueItem
                   transaction={transaction}
+                  transactionHistory={displayTransactions}
                   onEdit={handleEditTransaction}
                   onDelete={handleDeleteTransaction}
                 />
