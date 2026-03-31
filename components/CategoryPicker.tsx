@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import * as LucideIcons from 'lucide-react-native';
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '@/utils/categories';
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, getCategoryIconComponent } from '@/utils/categories';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -20,21 +19,12 @@ export function CategoryPicker({ type, selectedCategory, onSelect, compact = fal
   const selectedExistsInQuickList = quickCategories.some((category) => category.name === selectedCategory);
   const visibleCategories = compact && selectedExistsInQuickList ? quickCategories : compact ? [categories.find((category) => category.name === selectedCategory) ?? categories[0], ...quickCategories.filter((category) => category.name !== selectedCategory)] : categories;
 
-  // 将 icon 名称转换为组件名
-  const getIconComponent = (iconName: string) => {
-    const componentName = iconName
-      .split('-')
-      .map((s, i) => i === 0 ? s.charAt(0).toUpperCase() + s.slice(1) : s.charAt(0).toUpperCase() + s.slice(1))
-      .join('');
-    return (LucideIcons as any)[componentName] || LucideIcons.Circle;
-  };
-
   return (
     <View style={styles.container}>
       <Text style={[styles.title, { color: colors.text }]}>选择类别</Text>
       <View style={styles.grid}>
         {visibleCategories.map((category) => {
-          const IconComponent = getIconComponent(category.icon);
+          const IconComponent = getCategoryIconComponent(category.icon);
           const isSelected = selectedCategory === category.name;
           
           return (

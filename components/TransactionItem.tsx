@@ -1,7 +1,7 @@
 import { Colors } from '@/constants/theme';
 import { Transaction } from '@/db/insforge/schema';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { getCategoryByName } from '@/utils/categories';
+import { getCategoryByName, getCategoryIconComponent } from '@/utils/categories';
 import { formatRelativeDate, formatTransactionAmount } from '@/utils/format';
 import * as LucideIcons from 'lucide-react-native';
 import React, { useState } from 'react';
@@ -28,14 +28,7 @@ export function TransactionItem({
   const colors = Colors[colorScheme ?? 'light'];
   const [showMenu, setShowMenu] = useState(false);
   const category = getCategoryByName(transaction.category, transaction.type);
-
-  // 动态获取图标组件
-  const IconComponent = (LucideIcons as any)[
-    transaction.category_icon
-      .split('-')
-      .map((s: string, i: number) => i === 0 ? s : s.charAt(0).toUpperCase() + s.slice(1))
-      .join('')
-  ] || LucideIcons.Circle;
+  const IconComponent = getCategoryIconComponent(transaction.category_icon);
 
   const handleLongPress = () => {
     if (showActions) {
