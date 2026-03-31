@@ -28,7 +28,9 @@ export default function WalletScreen() {
     () => accounts.filter((account) => account.status !== 'active'),
     [accounts]
   );
-  const displayedAccounts = showInactiveAccounts ? accounts : activeAccounts;
+  const visibleAccountCount = showInactiveAccounts
+    ? activeAccounts.length + inactiveAccounts.length
+    : activeAccounts.length;
 
   useFocusEffect(
     useCallback(() => {
@@ -70,13 +72,13 @@ export default function WalletScreen() {
             </View>
           </View>
           <Text style={[styles.accountInfo, { color: colors.textSecondary }]}>
-            当前显示 {displayedAccounts.length} 个账户，共管理 {accounts.length} 个账户。
+            当前显示 {visibleAccountCount} 个账户，共管理 {accounts.length} 个账户。
           </Text>
         </View>
 
-        {displayedAccounts.length > 0 ? (
+        {activeAccounts.length > 0 ? (
           <View style={styles.accountList}>
-            {displayedAccounts.map((account) => (
+            {activeAccounts.map((account) => (
               <AccountItem
                 key={account.id}
                 account={account}
@@ -96,19 +98,34 @@ export default function WalletScreen() {
         )}
 
         {inactiveAccounts.length > 0 ? (
-          <TouchableOpacity
-            style={[styles.toggleInactiveButton, { backgroundColor: colors.surfaceElevated }]}
-            onPress={() => setShowInactiveAccounts((value) => !value)}
-          >
-            <Text style={[styles.toggleInactiveText, { color: colors.textSecondary }]}>
-              {showInactiveAccounts ? '收起隐藏与归档账户' : `显示隐藏与归档账户（${inactiveAccounts.length}）`}
-            </Text>
+          <View style={styles.inactiveSection}>
+            <TouchableOpacity
+              style={[styles.toggleInactiveButton, { backgroundColor: colors.surfaceElevated }]}
+              onPress={() => setShowInactiveAccounts((value) => !value)}
+            >
+              <Text style={[styles.toggleInactiveText, { color: colors.textSecondary }]}>
+                {showInactiveAccounts ? '收起隐藏与归档账户' : `显示隐藏与归档账户（${inactiveAccounts.length}）`}
+              </Text>
+              {showInactiveAccounts ? (
+                <ChevronUp size={18} color={colors.textSecondary} />
+              ) : (
+                <ChevronDown size={18} color={colors.textSecondary} />
+              )}
+            </TouchableOpacity>
+
             {showInactiveAccounts ? (
-              <ChevronUp size={18} color={colors.textSecondary} />
-            ) : (
-              <ChevronDown size={18} color={colors.textSecondary} />
-            )}
-          </TouchableOpacity>
+              <View style={styles.accountList}>
+                {inactiveAccounts.map((account) => (
+                  <AccountItem
+                    key={account.id}
+                    account={account}
+                    onPress={() => handleEditAccount(account)}
+                    onEdit={handleEditAccount}
+                  />
+                ))}
+              </View>
+            ) : null}
+          </View>
         ) : null}
       </ScrollView>
     </SafeAreaView>
@@ -137,10 +154,10 @@ const styles = StyleSheet.create({
   balanceAmount: { fontSize: 28, fontWeight: 'bold', marginTop: 2 },
   accountInfo: { fontSize: 14, marginTop: 16, lineHeight: 20 },
   accountList: { paddingHorizontal: 20, gap: 12 },
+  inactiveSection: { marginBottom: 24 },
   emptyWrap: { margin: 20 },
   toggleInactiveButton: {
     marginHorizontal: 20,
-    marginBottom: 24,
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
