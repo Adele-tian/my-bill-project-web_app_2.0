@@ -1,3 +1,4 @@
+import { AppPageHeader } from '@/components/AppPageHeader';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAccountStore } from '@/store/useAccountStore';
@@ -53,9 +54,15 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>个人中心</Text>
-          <Text style={[styles.title, { color: colors.text }]}>我的</Text>
+        <View style={styles.pagePadding}>
+          <AppPageHeader
+            title="设置"
+            rightSlot={
+              <View style={[styles.headerBadge, { backgroundColor: colors.surfaceMuted }]}>
+                <Text style={[styles.headerBadgeText, { color: colors.primary }]}>账户与偏好</Text>
+              </View>
+            }
+          />
         </View>
 
         <View style={styles.profileSection}>
@@ -76,7 +83,7 @@ export default function ProfileScreen() {
           ) : null}
         </View>
 
-        <View style={[styles.statsCard, { backgroundColor: colors.card }]}>
+        <View style={[styles.statsCard, { backgroundColor: colors.surfaceElevated }]}>
           <View style={styles.statItem}>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>账户数量</Text>
             <Text style={[styles.statValue, { color: colors.text }]}>{accountCount}</Text>
@@ -88,7 +95,7 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        <View style={[styles.menuCard, { backgroundColor: colors.card }]}>
+        <View style={[styles.menuCard, { backgroundColor: colors.surfaceElevated }]}>
           {menuItems.map((item, index) => {
             const IconComponent = item.icon;
             return (
@@ -115,9 +122,16 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingTop: 10 },
-  subtitle: { fontSize: 14 },
-  title: { fontSize: 28, fontWeight: 'bold', marginTop: 4 },
+  pagePadding: { paddingHorizontal: 20, paddingTop: 10 },
+  headerBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  headerBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
   profileSection: { alignItems: 'center', paddingVertical: 24 },
   avatar: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center' },
   avatarText: { fontSize: 32, fontWeight: 'bold' },
@@ -133,12 +147,31 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   loginButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
-  statsCard: { marginHorizontal: 20, borderRadius: 16, padding: 20, flexDirection: 'row' },
+  statsCard: {
+    marginHorizontal: 20,
+    borderRadius: 16,
+    padding: 20,
+    flexDirection: 'row',
+    shadowColor: '#D96E9B',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+    elevation: 3,
+  },
   statItem: { flex: 1 },
   statLabel: { fontSize: 12 },
   statValue: { fontSize: 32, fontWeight: 'bold', marginTop: 4 },
   statDivider: { width: 1, marginHorizontal: 16 },
-  menuCard: { margin: 20, borderRadius: 16, overflow: 'hidden' },
+  menuCard: {
+    margin: 20,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#D96E9B',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+    elevation: 3,
+  },
   menuItem: { flexDirection: 'row', alignItems: 'center', padding: 16 },
   menuIcon: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
   menuLabel: { flex: 1, fontSize: 16, marginLeft: 12 },

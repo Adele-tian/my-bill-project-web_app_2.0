@@ -6,27 +6,33 @@
 import { Platform } from 'react-native';
 
 // 智能记账APP主题色
-const tintColorLight = '#FF6B9D';
+const tintColorLight = '#FF4F93';
 const tintColorDark = '#FF8AB5';
 
 export const Colors = {
   light: {
     text: '#11181C',
-    textSecondary: '#687076',
-    background: '#F8F9FA',
+    textSecondary: '#7C6B75',
+    background: '#FFF7FB',
     card: '#FFFFFF',
     tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#B0B8C1',
+    icon: '#8E7E88',
+    tabIconDefault: '#C8B6C1',
     tabIconSelected: tintColorLight,
     // 记账APP专用色
-    primary: '#FF6B9D',
-    primaryLight: '#FFE4ED',
-    income: '#4CAF50',
-    expense: '#FF5722',
-    gradient: ['#A78BFA', '#60A5FA', '#34D399'],
-    cardGradient: ['#C084FC', '#818CF8', '#60A5FA'],
-    border: '#E8ECF0',
+    primary: '#FF4F93',
+    primaryLight: '#FFE5F0',
+    income: '#57C084',
+    expense: '#FF6C84',
+    gradient: ['#FFD0E3', '#FFB8D5', '#FF8FBC'],
+    cardGradient: ['#FFD6E7', '#FFB6D3', '#FF8FBC'],
+    border: '#F2D9E5',
+    softBackground: '#FEEAF3',
+    headerButtonBackground: '#FCE7F1',
+    headerButtonBorder: '#F6D9E6',
+    surfaceElevated: '#FFFFFF',
+    surfaceMuted: '#FBE5EF',
+    fabShadow: '#D54A83',
   },
   dark: {
     text: '#ECEDEE',
@@ -45,6 +51,12 @@ export const Colors = {
     gradient: ['#A78BFA', '#60A5FA', '#34D399'],
     cardGradient: ['#C084FC', '#818CF8', '#60A5FA'],
     border: '#2C3035',
+    softBackground: '#241B22',
+    headerButtonBackground: '#241B22',
+    headerButtonBorder: '#3A3037',
+    surfaceElevated: '#201920',
+    surfaceMuted: '#241B22',
+    fabShadow: '#000000',
   },
 };
 

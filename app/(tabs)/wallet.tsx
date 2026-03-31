@@ -1,3 +1,4 @@
+import { AppPageHeader } from '@/components/AppPageHeader';
 import { AccountItem } from '@/components/AccountItem';
 import { EmptyState } from '@/components/EmptyState';
 import { Colors } from '@/constants/theme';
@@ -46,18 +47,19 @@ export default function WalletScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <View>
-            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>资产概览</Text>
-            <Text style={[styles.title, { color: colors.text }]}>钱包</Text>
-          </View>
-          <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primaryLight }]} onPress={handleAddAccount}>
-            <Plus size={16} color={colors.primary} />
-            <Text style={[styles.addButtonText, { color: colors.primary }]}>添加账户</Text>
-          </TouchableOpacity>
+        <View style={styles.pagePadding}>
+          <AppPageHeader
+            title="钱包"
+            rightSlot={
+              <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.surfaceMuted }]} onPress={handleAddAccount}>
+                <Plus size={16} color={colors.primary} />
+                <Text style={[styles.addButtonText, { color: colors.primary }]}>添加账户</Text>
+              </TouchableOpacity>
+            }
+          />
         </View>
 
-        <View style={[styles.balanceCard, { backgroundColor: colors.card }]}>
+        <View style={[styles.balanceCard, { backgroundColor: colors.surfaceElevated }]}>
           <View style={styles.balanceHeader}>
             <View style={[styles.walletIconWrap, { backgroundColor: colors.primaryLight }]}>
               <Wallet size={24} color={colors.primary} />
@@ -95,7 +97,7 @@ export default function WalletScreen() {
 
         {inactiveAccounts.length > 0 ? (
           <TouchableOpacity
-            style={[styles.toggleInactiveButton, { borderColor: colors.border, backgroundColor: colors.card }]}
+            style={[styles.toggleInactiveButton, { backgroundColor: colors.surfaceElevated }]}
             onPress={() => setShowInactiveAccounts((value) => !value)}
           >
             <Text style={[styles.toggleInactiveText, { color: colors.textSecondary }]}>
@@ -115,12 +117,19 @@ export default function WalletScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 20, paddingTop: 10 },
-  subtitle: { fontSize: 14 },
-  title: { fontSize: 28, fontWeight: 'bold', marginTop: 4 },
-  addButton: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, gap: 4 },
+  pagePadding: { paddingHorizontal: 20, paddingTop: 10 },
+  addButton: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, gap: 4 },
   addButtonText: { fontSize: 14, fontWeight: '500' },
-  balanceCard: { margin: 20, borderRadius: 16, padding: 20 },
+  balanceCard: {
+    margin: 20,
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#D96E9B',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+    elevation: 3,
+  },
   balanceHeader: { flexDirection: 'row', alignItems: 'center' },
   walletIconWrap: { width: 48, height: 48, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   balanceInfo: { marginLeft: 12 },
@@ -132,13 +141,17 @@ const styles = StyleSheet.create({
   toggleInactiveButton: {
     marginHorizontal: 20,
     marginBottom: 24,
-    borderWidth: 1,
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    shadowColor: '#D96E9B',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+    elevation: 3,
   },
   toggleInactiveText: {
     fontSize: 14,

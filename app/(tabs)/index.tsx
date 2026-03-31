@@ -1,5 +1,5 @@
+import { AppPageHeader } from '@/components/AppPageHeader';
 import { EmptyState } from '@/components/EmptyState';
-import { FloatingActionButton } from '@/components/FloatingActionButton';
 import { HomeClueItem } from '@/components/HomeClueItem';
 import { Colors } from '@/constants/theme';
 import { Transaction } from '@/db/insforge/schema';
@@ -48,8 +48,6 @@ export default function HomeScreen() {
     .filter((transaction) => transaction.type === 'expense')
     .reduce((sum, transaction) => sum + transaction.amount, 0);
 
-  const handleAddTransaction = () => router.push('/add-transaction');
-  const handleTextAiInput = () => router.push('/add-transaction?input=text');
   const handleEditTransaction = (transaction: Transaction) => router.push(`/add-transaction?id=${transaction.id}`);
   const handleDeleteTransaction = async (id: number) => {
     await removeTransaction(id);
@@ -60,11 +58,16 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>线索</Text>
-        </View>
+        <AppPageHeader
+          title="线索"
+          rightSlot={
+            <View style={[styles.headerBadge, { backgroundColor: colors.surfaceMuted }]}>
+              <Text style={[styles.headerBadgeText, { color: colors.primary }]}>今天也值得记录</Text>
+            </View>
+          }
+        />
 
-        <View style={[styles.headlineCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.headlineCard, { backgroundColor: colors.surfaceElevated }]}>
           <View style={styles.headlineAccent} />
           <View style={styles.headlineBody}>
             <Text style={[styles.headlineText, { color: colors.text }]}>{getHomeHeadline()}</Text>
@@ -72,7 +75,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <View style={[styles.dayCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.dayCard, { backgroundColor: colors.surfaceElevated }]}>
           <View>
             <Text style={[styles.monthText, { color: colors.textSecondary }]}>{format(today, 'MMM.')}</Text>
             <Text style={[styles.dayText, { color: colors.text }]}>{format(today, 'dd')}</Text>
@@ -82,14 +85,14 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <View style={[styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.listCard, { backgroundColor: colors.surfaceElevated }]}>
           {displayTransactions.length > 0 ? (
             displayTransactions.map((transaction, index) => (
               <View
                 key={transaction.id}
                 style={[
                   styles.listRow,
-                  index !== 0 && { borderTopWidth: 1, borderTopColor: colors.border },
+                  index !== 0 && { marginTop: 4 },
                 ]}
               >
                 <HomeClueItem
@@ -108,8 +111,6 @@ export default function HomeScreen() {
           )}
         </View>
       </ScrollView>
-
-      <FloatingActionButton onAddTransaction={handleAddTransaction} onQuickInput={handleTextAiInput} />
     </SafeAreaView>
   );
 }
@@ -121,25 +122,26 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 120,
+    paddingBottom: 148,
     gap: 14,
   },
-  header: {
-    paddingHorizontal: 4,
+  headerBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  title: {
-    fontSize: 24,
+  headerBadgeText: {
+    fontSize: 12,
     fontWeight: '700',
   },
   headlineCard: {
     borderRadius: 24,
-    borderWidth: 1,
     padding: 18,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: '#D96E9B',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.05,
     shadowRadius: 14,
     elevation: 2,
   },
@@ -147,7 +149,7 @@ const styles = StyleSheet.create({
     width: 3,
     height: 54,
     borderRadius: 999,
-    backgroundColor: '#7ED957',
+    backgroundColor: '#FF75AD',
     marginRight: 12,
   },
   headlineBody: {
@@ -166,12 +168,16 @@ const styles = StyleSheet.create({
   },
   dayCard: {
     borderRadius: 24,
-    borderWidth: 1,
     paddingHorizontal: 18,
     paddingVertical: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    shadowColor: '#D96E9B',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+    elevation: 2,
   },
   monthText: {
     fontSize: 15,
@@ -193,10 +199,14 @@ const styles = StyleSheet.create({
   },
   listCard: {
     borderRadius: 24,
-    borderWidth: 1,
     paddingHorizontal: 18,
     paddingVertical: 2,
     minHeight: 240,
+    shadowColor: '#D96E9B',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+    elevation: 2,
   },
   listRow: {
     minHeight: 116,

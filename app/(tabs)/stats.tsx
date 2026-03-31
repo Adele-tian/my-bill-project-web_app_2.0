@@ -1,10 +1,10 @@
-import { FloatingActionButton } from '@/components/FloatingActionButton';
+import { AppPageHeader } from '@/components/AppPageHeader';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTransactionStore } from '@/store/useTransactionStore';
 import { getCategoryByName } from '@/utils/categories';
 import { formatCurrency } from '@/utils/format';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import {
   addMonths,
   eachDayOfInterval,
@@ -42,7 +42,6 @@ export default function StatsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { width } = useWindowDimensions();
-  const router = useRouter();
 
   const [selectedMonthDate, setSelectedMonthDate] = useState(() => startOfMonth(new Date()));
   const [selectedCategoryType, setSelectedCategoryType] = useState<'expense' | 'income'>('expense');
@@ -106,42 +105,41 @@ export default function StatsScreen() {
     ? Math.max(6, Math.floor((chartWidth - ((monthlyTrendSummary.length - 1) * barGap)) / monthlyTrendSummary.length))
     : 8;
 
-  const handleAddTransaction = () => router.push('/add-transaction');
-  const handleQuickInput = () => router.push('/add-transaction?input=text');
-
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <Text style={[styles.pageTitle, { color: colors.text }]}>洞察</Text>
-          <View style={styles.headerActions}>
-            <TouchableOpacity style={[styles.headerIconButton, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Search size={18} color={colors.text} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.filterChip, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => setSelectedCategoryType((current) => (current === 'expense' ? 'income' : 'expense'))}
-            >
-              <Text style={[styles.filterChipText, { color: colors.text }]}>
-                {selectedCategoryType === 'expense' ? '支出' : '收入'}
-              </Text>
-              <ChevronDown size={14} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-        </View>
+        <AppPageHeader
+          title="洞察"
+          rightSlot={
+            <View style={styles.headerActions}>
+              <TouchableOpacity style={[styles.headerIconButton, { backgroundColor: colors.surfaceMuted }]}>
+                <Search size={18} color={colors.text} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.filterChip, { backgroundColor: colors.surfaceMuted }]}
+                onPress={() => setSelectedCategoryType((current) => (current === 'expense' ? 'income' : 'expense'))}
+              >
+                <Text style={[styles.filterChipText, { color: colors.text }]}>
+                  {selectedCategoryType === 'expense' ? '支出' : '收入'}
+                </Text>
+                <ChevronDown size={14} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+          }
+        />
 
-        <View style={[styles.heroCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.heroCard, { backgroundColor: colors.surfaceElevated }]}>
           <View style={styles.heroTopRow}>
             <View style={styles.monthSwitch}>
               <TouchableOpacity
-                style={[styles.monthNavButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+                style={[styles.monthNavButton, { backgroundColor: colors.surfaceMuted }]}
                 onPress={() => setSelectedMonthDate((current) => subMonths(current, 1))}
               >
                 <ChevronLeft size={16} color={colors.textSecondary} />
               </TouchableOpacity>
               <Text style={[styles.heroMonthText, { color: colors.text }]}>{format(selectedMonthDate, 'M月')}</Text>
               <TouchableOpacity
-                style={[styles.monthNavButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+                style={[styles.monthNavButton, { backgroundColor: colors.surfaceMuted }]}
                 onPress={() => setSelectedMonthDate((current) => addMonths(current, 1))}
               >
                 <ChevronRight size={16} color={colors.textSecondary} />
@@ -191,7 +189,7 @@ export default function StatsScreen() {
             </View>
           </View>
 
-          <View style={[styles.heroFooter, { borderTopColor: colors.border }]}>
+          <View style={styles.heroFooter}>
             <Text style={[styles.heroFooterLabel, { color: colors.textSecondary }]}>今年总支出</Text>
             <Text style={[styles.heroFooterValue, { color: colors.text }]}>
               {formatCurrency(monthlySummary.yearExpense)}
@@ -200,7 +198,7 @@ export default function StatsScreen() {
         </View>
 
         <View style={styles.dualRow}>
-          <View style={[styles.smallCard, styles.calendarCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.smallCard, styles.calendarCard, { backgroundColor: colors.surfaceElevated }]}>
             <Text style={[styles.cardTitle, { color: colors.text }]}>支出日历</Text>
             <View style={styles.weekLabelRow}>
               {WEEKDAY_LABELS.map((label) => (
@@ -222,8 +220,7 @@ export default function StatsScreen() {
                     style={[
                       styles.calendarCell,
                       {
-                        backgroundColor: isCurrentMonth && expense > 0 ? `rgba(91,168,255,${opacity})` : colors.background,
-                        borderColor: isCurrentMonth && expense > 0 ? `${colors.primary}44` : colors.border,
+                        backgroundColor: isCurrentMonth && expense > 0 ? `${colors.primary}${Math.round(opacity * 255).toString(16).padStart(2, '0')}` : colors.softBackground,
                       },
                     ]}
                   />
@@ -236,7 +233,7 @@ export default function StatsScreen() {
             </View>
           </View>
 
-          <View style={[styles.smallCard, styles.categoryCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.smallCard, styles.categoryCard, { backgroundColor: colors.surfaceElevated }]}>
             <View style={styles.categoryHeader}>
               <Text style={[styles.cardTitle, { color: colors.text }]}>分类占比</Text>
               <Text style={[styles.categoryScope, { color: colors.textSecondary }]}>
@@ -287,7 +284,7 @@ export default function StatsScreen() {
           </View>
         </View>
 
-        <View style={[styles.flowCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.flowCard, { backgroundColor: colors.surfaceElevated }]}>
           <View style={styles.flowHeader}>
             <Text style={[styles.cardTitle, { color: colors.text }]}>账单流水</Text>
             <View style={styles.flowHeadLabels}>
@@ -298,7 +295,7 @@ export default function StatsScreen() {
 
           {hasMonthlyTransactions ? (
             monthlyRecentTransactions.map((transaction) => (
-              <View key={transaction.id} style={[styles.flowRow, { borderTopColor: colors.border }]}>
+              <View key={transaction.id} style={styles.flowRow}>
                 <View style={styles.flowMain}>
                   <Text style={[styles.flowTitle, { color: colors.text }]} numberOfLines={1}>
                     {transaction.category}
@@ -332,7 +329,6 @@ export default function StatsScreen() {
         </View>
       </ScrollView>
 
-      <FloatingActionButton onAddTransaction={handleAddTransaction} onQuickInput={handleQuickInput} />
     </SafeAreaView>
   );
 }
@@ -344,18 +340,8 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 120,
+    paddingBottom: 132,
     gap: 14,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 4,
-  },
-  pageTitle: {
-    fontSize: 22,
-    fontWeight: '700',
   },
   headerActions: {
     flexDirection: 'row',
@@ -366,7 +352,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -376,7 +361,6 @@ const styles = StyleSheet.create({
     gap: 6,
     height: 36,
     borderRadius: 18,
-    borderWidth: 1,
     paddingHorizontal: 12,
   },
   filterChipText: {
@@ -385,8 +369,12 @@ const styles = StyleSheet.create({
   },
   heroCard: {
     borderRadius: 28,
-    borderWidth: 1,
     padding: 18,
+    shadowColor: '#D96E9B',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 3,
   },
   heroTopRow: {
     flexDirection: 'row',
@@ -403,7 +391,6 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -466,7 +453,6 @@ const styles = StyleSheet.create({
   heroFooter: {
     marginTop: 18,
     paddingTop: 14,
-    borderTopWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -485,9 +471,13 @@ const styles = StyleSheet.create({
   smallCard: {
     flex: 1,
     borderRadius: 24,
-    borderWidth: 1,
     padding: 16,
     minHeight: 220,
+    shadowColor: '#D96E9B',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+    elevation: 3,
   },
   calendarCard: {
     justifyContent: 'space-between',
@@ -520,7 +510,6 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 5,
-    borderWidth: 1,
   },
   calendarFooter: {
     flexDirection: 'row',
@@ -589,8 +578,12 @@ const styles = StyleSheet.create({
   },
   flowCard: {
     borderRadius: 24,
-    borderWidth: 1,
     padding: 16,
+    shadowColor: '#D96E9B',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+    elevation: 3,
   },
   flowHeader: {
     flexDirection: 'row',
@@ -611,7 +604,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 14,
-    borderTopWidth: 1,
     gap: 10,
   },
   flowMain: {

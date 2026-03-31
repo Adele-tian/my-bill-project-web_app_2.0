@@ -25,8 +25,8 @@ export function FloatingActionButton({
   const [isOpen, setIsOpen] = useState(false);
 
   const actions: FABAction[] = [
-    { icon: Edit3, label: '快速输入', color: '#60A5FA', onPress: onQuickInput || (() => {}) },
-    { icon: FileText, label: '记一笔', color: '#F472B6', onPress: onAddTransaction || (() => {}) },
+    { icon: Edit3, label: '快速输入', color: colors.primary, onPress: onQuickInput || (() => {}) },
+    { icon: FileText, label: '记一笔', color: '#FF7CAF', onPress: onAddTransaction || (() => {}) },
   ];
 
   const toggleMenu = () => setIsOpen(!isOpen);
@@ -56,8 +56,23 @@ export function FloatingActionButton({
                 style={styles.menuItem}
                 onPress={() => handleAction(action)}
               >
-                <Text style={styles.menuLabel}>{action.label}</Text>
-                <View style={[styles.menuIcon, { backgroundColor: action.color + '20' }]}>
+                <Text
+                  style={[
+                    styles.menuLabel,
+                    {
+                      backgroundColor: colors.surfaceElevated,
+                      color: colors.text,
+                    },
+                  ]}>
+                  {action.label}
+                </Text>
+                <View
+                  style={[
+                    styles.menuIcon,
+                    {
+                      backgroundColor: action.color + '18',
+                    },
+                  ]}>
                   <IconComponent size={20} color={action.color} />
                 </View>
               </TouchableOpacity>
@@ -67,14 +82,14 @@ export function FloatingActionButton({
       )}
 
       <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.primary }]}
+        style={[styles.fab, { backgroundColor: colors.primary, shadowColor: colors.fabShadow }]}
         onPress={toggleMenu}
         activeOpacity={0.8}
       >
         {isOpen ? (
-          <X size={28} color="#FFF" />
+          <X size={34} color="#FFF" />
         ) : (
-          <Plus size={28} color="#FFF" />
+          <Plus size={34} color="#FFF" />
         )}
       </TouchableOpacity>
     </View>
@@ -89,15 +104,15 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: 'rgba(17, 24, 28, 0.12)',
     zIndex: 1,
   },
   menu: {
     position: 'absolute',
-    right: 24,
-    bottom: 100,
+    right: 22,
+    bottom: 118,
     alignItems: 'flex-end',
-    gap: 12,
+    gap: 14,
     zIndex: 3,
     elevation: 10,
   },
@@ -107,45 +122,43 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   menuLabel: {
-    backgroundColor: '#FFF',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 999,
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '700',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
     elevation: 3,
     overflow: 'hidden',
   },
   menuIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
     elevation: 4,
   },
   fab: {
     position: 'absolute',
-    right: 24,
-    bottom: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    right: 20,
+    bottom: 26,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 2,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    elevation: 10,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.26,
+    shadowRadius: 18,
   },
 });
