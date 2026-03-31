@@ -73,6 +73,8 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
       </View>
 
       <View style={styles.addButtonWrap} pointerEvents="box-none">
+        <View style={[styles.addButtonHaloOuter, { backgroundColor: colors.fabHaloOuter }]} />
+        <View style={[styles.addButtonHaloInner, { backgroundColor: colors.fabHaloInner }]} />
         <TouchableOpacity
           style={[styles.addButton, { backgroundColor: colors.primary, shadowColor: colors.fabShadow }]}
           onPress={() => router.push('/add-transaction' as Href)}
@@ -122,10 +124,28 @@ const styles = StyleSheet.create({
   },
   addButtonWrap: {
     position: 'absolute',
-    right: 0,
-    bottom: 0,
+    right: 18,
+    bottom: 18,
     zIndex: 20,
     elevation: 20,
+    width: 116,
+    height: 116,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addButtonHaloOuter: {
+    position: 'absolute',
+    width: 114,
+    height: 114,
+    borderRadius: 57,
+    opacity: 1,
+  },
+  addButtonHaloInner: {
+    position: 'absolute',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    opacity: 1,
   },
   addButton: {
     width: 86,
@@ -140,9 +160,9 @@ const styles = StyleSheet.create({
   },
   addButtonIcon: {
     color: '#FFFFFF',
-    fontSize: 40,
-    lineHeight: 40,
+    fontSize: 39,
+    lineHeight: 39,
     fontWeight: '700',
-    marginTop: -4,
+    marginTop: -3,
   },
 });

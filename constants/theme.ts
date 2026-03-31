@@ -33,6 +33,8 @@ export const Colors = {
     surfaceElevated: '#FFFFFF',
     surfaceMuted: '#FBE5EF',
     fabShadow: '#D54A83',
+    fabHaloInner: 'rgba(255, 79, 147, 0.18)',
+    fabHaloOuter: 'rgba(255, 79, 147, 0.08)',
   },
   dark: {
     text: '#ECEDEE',
@@ -57,6 +59,8 @@ export const Colors = {
     surfaceElevated: '#201920',
     surfaceMuted: '#241B22',
     fabShadow: '#000000',
+    fabHaloInner: 'rgba(255, 138, 181, 0.16)',
+    fabHaloOuter: 'rgba(255, 138, 181, 0.07)',
   },
 };
 
