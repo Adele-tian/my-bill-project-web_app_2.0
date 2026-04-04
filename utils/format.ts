@@ -17,6 +17,14 @@ export function formatCurrency(amount: number, showSign = false): string {
 }
 
 /**
+ * 解析应用内保存的日期字符串。
+ * 对 yyyy-MM-dd 使用本地时区解析，避免 new Date(dateOnly) 带来的 UTC 偏移。
+ */
+export function parseAppDate(dateString: string): Date {
+  return parseISO(dateString);
+}
+
+/**
  * 格式化交易金额（带符号）
  */
 export function formatTransactionAmount(amount: number, type: 'income' | 'expense'): string {
@@ -32,7 +40,7 @@ export function formatTransactionAmount(amount: number, type: 'income' | 'expens
  */
 export function formatDate(dateString: string, formatStr = 'MM月dd日'): string {
   try {
-    const date = parseISO(dateString);
+    const date = parseAppDate(dateString);
     return format(date, formatStr, { locale: zhCN });
   } catch {
     return dateString;
@@ -44,7 +52,7 @@ export function formatDate(dateString: string, formatStr = 'MM月dd日'): string
  */
 export function formatRelativeDate(dateString: string): string {
   try {
-    const date = parseISO(dateString);
+    const date = parseAppDate(dateString);
     if (isToday(date)) return '今天';
     if (isYesterday(date)) return '昨天';
     return format(date, 'MM月dd日', { locale: zhCN });
@@ -58,7 +66,7 @@ export function formatRelativeDate(dateString: string): string {
  */
 export function formatTimeAgo(dateString: string): string {
   try {
-    const date = parseISO(dateString);
+    const date = parseAppDate(dateString);
     return formatDistanceToNow(date, { addSuffix: true, locale: zhCN });
   } catch {
     return dateString;
@@ -77,10 +85,9 @@ export function getTodayString(): string {
  */
 export function formatDateTime(dateString: string): string {
   try {
-    const date = parseISO(dateString);
+    const date = parseAppDate(dateString);
     return format(date, 'yyyy年MM月dd日 HH:mm', { locale: zhCN });
   } catch {
     return dateString;
   }
 }
-

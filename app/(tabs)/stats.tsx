@@ -3,19 +3,18 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTransactionStore } from '@/store/useTransactionStore';
 import { getCategoryByName, getCategoryIconComponent } from '@/utils/categories';
-import { formatCurrency } from '@/utils/format';
+import { formatCurrency, parseAppDate } from '@/utils/format';
 import type { EmotionKey } from '@/utils/home-clues';
 import { getEmotionMeta, getHomeCategoryCopy, parseEmotionFromDescription, stripEmotionFromDescription } from '@/utils/home-clues';
 import { useFocusEffect } from 'expo-router';
 import {
   addMonths,
   eachDayOfInterval,
+  getDay,
   endOfMonth,
-  endOfWeek,
   format,
   isSameMonth,
   startOfMonth,
-  startOfWeek,
   subMonths,
 } from 'date-fns';
 import { ChevronDown, ChevronLeft, ChevronRight, Search } from 'lucide-react-native';
@@ -43,10 +42,18 @@ function formatMonthKey(date: Date): string {
   return format(startOfMonth(date), 'yyyy-MM');
 }
 
-function buildCalendarDays(monthDate: Date): Date[] {
-  const start = startOfWeek(startOfMonth(monthDate), { weekStartsOn: 1 });
-  const end = endOfWeek(endOfMonth(monthDate), { weekStartsOn: 1 });
-  return eachDayOfInterval({ start, end });
+function buildCalendarDays(monthDate: Date): (Date | null)[] {
+  const monthStart = startOfMonth(monthDate);
+  const monthEnd = endOfMonth(monthDate);
+  const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  const leadingEmptyDays = (getDay(monthStart) + 6) % 7;
+  const trailingEmptyDays = (7 - ((leadingEmptyDays + monthDays.length) % 7)) % 7;
+
+  return [
+    ...Array.from({ length: leadingEmptyDays }, () => null),
+    ...monthDays,
+    ...Array.from({ length: trailingEmptyDays }, () => null),
+  ];
 }
 
 export default function StatsScreen() {
@@ -138,8 +145,9 @@ export default function StatsScreen() {
         continue;
       }
 
-      const monthMatchesCurrent = isSameMonth(new Date(transaction.date), selectedMonthDate);
-      const monthMatchesPrevious = isSameMonth(new Date(transaction.date), previousMonthDate);
+      const transactionDate = parseAppDate(transaction.date);
+      const monthMatchesCurrent = isSameMonth(transactionDate, selectedMonthDate);
+      const monthMatchesPrevious = isSameMonth(transactionDate, previousMonthDate);
 
       if (monthMatchesCurrent) {
         const current = currentMonthTotals.get(transaction.category);
@@ -289,11 +297,14 @@ export default function StatsScreen() {
               ))}
             </View>
             <View style={styles.calendarGrid}>
-              {calendarDays.map((day) => {
+              {calendarDays.map((day, index) => {
+                if (!day) {
+                  return <View key={`calendar-empty-${selectedMonth}-${index}`} style={styles.calendarCellPlaceholder} />;
+                }
+
                 const dayNumber = Number(format(day, 'd'));
-                const expense = isSameMonth(day, selectedMonthDate) ? expenseMap.get(dayNumber) ?? 0 : 0;
-                const opacity = maxExpense > 0 ? Math.max(0.12, expense / maxExpense) : 0.12;
-                const isCurrentMonth = isSameMonth(day, selectedMonthDate);
+                const expense = expenseMap.get(dayNumber) ?? 0;
+                const opacity = maxExpense > 0 ? Math.max(0.32, expense / maxExpense) : 0.32;
 
                 return (
                   <View
@@ -301,7 +312,7 @@ export default function StatsScreen() {
                     style={[
                       styles.calendarCell,
                       {
-                        backgroundColor: isCurrentMonth && expense > 0 ? `${colors.primary}${Math.round(opacity * 255).toString(16).padStart(2, '0')}` : colors.softBackground,
+                        backgroundColor: expense > 0 ? `${colors.primary}${Math.round(opacity * 255).toString(16).padStart(2, '0')}` : colors.border,
                       },
                     ]}
                   />
@@ -480,7 +491,7 @@ export default function StatsScreen() {
                   {formatCurrency(transaction.amount).replace('¥', '¥')}
                 </Text>
                 <Text style={[styles.flowTime, { color: colors.textSecondary }]}>
-                  {format(new Date(transaction.date), 'MM/dd')}
+                  {format(parseAppDate(transaction.date), 'MM/dd')}
                 </Text>
               </View>
             ))
@@ -671,6 +682,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
+  },
+  calendarCellPlaceholder: {
+    width: 18,
+    height: 18,
   },
   calendarCell: {
     width: 18,

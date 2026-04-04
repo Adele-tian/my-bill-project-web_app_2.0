@@ -6,7 +6,7 @@ import { Transaction } from '@/db/insforge/schema';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTransactionStore } from '@/store/useTransactionStore';
 import { getHomeHeadline } from '@/utils/home-clues';
-import { formatCurrency } from '@/utils/format';
+import { formatCurrency, parseAppDate } from '@/utils/format';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { format } from 'date-fns';
 import React, { useCallback, useMemo } from 'react';
@@ -14,7 +14,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 function isSameDate(dateString: string, target: Date): boolean {
-  return format(new Date(dateString), 'yyyy-MM-dd') === format(target, 'yyyy-MM-dd');
+  return format(parseAppDate(dateString), 'yyyy-MM-dd') === format(target, 'yyyy-MM-dd');
 }
 
 export default function HomeScreen() {

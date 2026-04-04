@@ -8,6 +8,7 @@ import {
   format,
   isSameDay,
   isSameMonth,
+  parse,
   startOfMonth,
   startOfWeek,
   subMonths,
@@ -23,12 +24,25 @@ interface DateQuickPickerProps {
 
 type DateMode = 'today' | 'custom';
 
+function toLocalDateString(date: Date): string {
+  return format(date, 'yyyy-MM-dd');
+}
+
+function parsePickerDate(value: string): Date {
+  const trimmed = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return parse(trimmed, 'yyyy-MM-dd', new Date());
+  }
+
+  return new Date(trimmed);
+}
+
 function todayIso(): string {
-  return new Date().toISOString();
+  return toLocalDateString(new Date());
 }
 
 function isToday(value: string): boolean {
-  return format(new Date(value), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+  return toLocalDateString(parsePickerDate(value)) === toLocalDateString(new Date());
 }
 
 function parseCustomDate(value: string): string | null {
@@ -53,7 +67,7 @@ function parseCustomDate(value: string): string | null {
     return null;
   }
 
-  return nextDate.toISOString();
+  return toLocalDateString(nextDate);
 }
 
 function getCalendarDays(month: Date): Date[] {
@@ -75,7 +89,7 @@ const WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
 export function DateQuickPicker({ value, onChange }: DateQuickPickerProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const currentDate = useMemo(() => new Date(value), [value]);
+  const currentDate = useMemo(() => parsePickerDate(value), [value]);
   const currentDateLabel = useMemo(() => format(currentDate, 'yyyy-MM-dd'), [currentDate]);
   const [mode, setMode] = useState<DateMode>(isToday(value) ? 'today' : 'custom');
   const [isPickerVisible, setIsPickerVisible] = useState(false);
@@ -84,7 +98,7 @@ export function DateQuickPicker({ value, onChange }: DateQuickPickerProps) {
   const calendarDays = useMemo(() => getCalendarDays(viewMonth), [viewMonth]);
 
   useEffect(() => {
-    const nextDate = new Date(value);
+    const nextDate = parsePickerDate(value);
     setMode(isToday(value) ? 'today' : 'custom');
     setViewMonth(startOfMonth(nextDate));
   }, [value]);
