@@ -206,9 +206,10 @@ export default function ImportTransactionsScreen() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
-    importable: false,
-    skipped: false,
-    invalid: false,
+    importable: true,
+    duplicate: true,
+    skipped: true,
+    invalid: true,
   });
 
   const readAssetAsBase64 = useCallback(async (asset: DocumentPicker.DocumentPickerAsset): Promise<string> => {
@@ -305,6 +306,13 @@ export default function ImportTransactionsScreen() {
 
       setPreview(nextPreview);
       setResultSummary(null);
+      setExpandedRows({});
+      setCollapsedSections({
+        importable: true,
+        duplicate: true,
+        skipped: true,
+        invalid: true,
+      });
       setStep('preview');
     } catch (error) {
       const message = error instanceof Error ? error.message : '文件解析失败，请检查账单格式';
@@ -356,9 +364,10 @@ export default function ImportTransactionsScreen() {
     setLoadError(null);
     setExpandedRows({});
     setCollapsedSections({
-      importable: false,
-      skipped: false,
-      invalid: false,
+      importable: true,
+      duplicate: true,
+      skipped: true,
+      invalid: true,
     });
     setStep('select');
   }, []);
@@ -512,15 +521,20 @@ export default function ImportTransactionsScreen() {
               <TouchableOpacity style={styles.collapsibleSectionHeader} activeOpacity={0.82} onPress={() => toggleSection('importable')}>
                 <View style={styles.collapsibleSectionTitleWrap}>
                   <Text style={[styles.sectionTitle, { color: colors.text }]}>将要导入</Text>
-                  <Text style={[styles.bodyText, styles.sectionSummaryText, { color: colors.textSecondary }]}>
-                    {selectedAccount ? `导入到账户：${selectedAccount.name}` : '请先选择账户'}，预计新增 {importableRows.length} 条账单。
-                  </Text>
+                  {!collapsedSections.importable ? (
+                    <Text style={[styles.bodyText, styles.sectionSummaryText, { color: colors.textSecondary }]}>
+                      {selectedAccount ? `导入到账户：${selectedAccount.name}` : '请先选择账户'}，预计新增 {importableRows.length} 条账单。
+                    </Text>
+                  ) : null}
                 </View>
-                {collapsedSections.importable ? (
-                  <ChevronDown size={20} color={colors.textSecondary} />
-                ) : (
-                  <ChevronUp size={20} color={colors.textSecondary} />
-                )}
+                <View style={styles.sectionHeaderRight}>
+                  <Text style={[styles.sectionCount, { color: colors.textSecondary }]}>{importableRows.length} 条</Text>
+                  {collapsedSections.importable ? (
+                    <ChevronDown size={20} color={colors.textSecondary} />
+                  ) : (
+                    <ChevronUp size={20} color={colors.textSecondary} />
+                  )}
+                </View>
               </TouchableOpacity>
               {!collapsedSections.importable ? (
                 <View style={styles.previewList}>
@@ -551,32 +565,44 @@ export default function ImportTransactionsScreen() {
 
             {duplicateCandidates.length > 0 ? (
               <View style={[styles.infoCard, { backgroundColor: colors.surfaceElevated }]}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>重复项</Text>
-                <View style={styles.previewList}>
-                  {duplicateCandidates.map((item) => {
-                    const row = preview.rows.find((candidate) => candidate.rowNumber === item.rowNumber);
-                    if (!row) {
-                      return null;
-                    }
+                <TouchableOpacity style={styles.collapsibleSectionHeader} activeOpacity={0.82} onPress={() => toggleSection('duplicate')}>
+                  <Text style={[styles.sectionTitle, { color: colors.text }]}>重复项</Text>
+                  <View style={styles.sectionHeaderRight}>
+                    <Text style={[styles.sectionCount, { color: colors.textSecondary }]}>{duplicateCandidates.length} 条</Text>
+                    {collapsedSections.duplicate ? (
+                      <ChevronDown size={20} color={colors.textSecondary} />
+                    ) : (
+                      <ChevronUp size={20} color={colors.textSecondary} />
+                    )}
+                  </View>
+                </TouchableOpacity>
+                {!collapsedSections.duplicate ? (
+                  <View style={styles.previewList}>
+                    {duplicateCandidates.map((item) => {
+                      const row = preview.rows.find((candidate) => candidate.rowNumber === item.rowNumber);
+                      if (!row) {
+                        return null;
+                      }
 
-                    const rowKey = `duplicate-${item.rowNumber}-${row.description}`;
-                    return (
-                      <ExpandableImportRow
-                        key={rowKey}
-                        rowKey={rowKey}
-                        title={row.description}
-                        meta={`第 ${item.rowNumber} 行 · ${row.date} · ${row.category}`}
-                        amountText={`${row.type === 'income' ? '+' : '-'}¥${row.amount.toFixed(2)}`}
-                        amountTone={row.type === 'income' ? 'income' : 'expense'}
-                        reason={getDuplicateReason(item)}
-                        details={getRawDetails(preview.source, row.raw)}
-                        expanded={Boolean(expandedRows[rowKey])}
-                        onToggle={toggleExpandedRow}
-                        colors={colors}
-                      />
-                    );
-                  })}
-                </View>
+                      const rowKey = `duplicate-${item.rowNumber}-${row.description}`;
+                      return (
+                        <ExpandableImportRow
+                          key={rowKey}
+                          rowKey={rowKey}
+                          title={row.description}
+                          meta={`第 ${item.rowNumber} 行 · ${row.date} · ${row.category}`}
+                          amountText={`${row.type === 'income' ? '+' : '-'}¥${row.amount.toFixed(2)}`}
+                          amountTone={row.type === 'income' ? 'income' : 'expense'}
+                          reason={getDuplicateReason(item)}
+                          details={getRawDetails(preview.source, row.raw)}
+                          expanded={Boolean(expandedRows[rowKey])}
+                          onToggle={toggleExpandedRow}
+                          colors={colors}
+                        />
+                      );
+                    })}
+                  </View>
+                ) : null}
               </View>
             ) : null}
 
@@ -584,11 +610,14 @@ export default function ImportTransactionsScreen() {
               <View style={[styles.infoCard, { backgroundColor: colors.surfaceElevated }]}>
                 <TouchableOpacity style={styles.collapsibleSectionHeader} activeOpacity={0.82} onPress={() => toggleSection('skipped')}>
                   <Text style={[styles.sectionTitle, { color: colors.text }]}>已跳过</Text>
-                  {collapsedSections.skipped ? (
-                    <ChevronDown size={20} color={colors.textSecondary} />
-                  ) : (
-                    <ChevronUp size={20} color={colors.textSecondary} />
-                  )}
+                  <View style={styles.sectionHeaderRight}>
+                    <Text style={[styles.sectionCount, { color: colors.textSecondary }]}>{skippedErrors.length} 条</Text>
+                    {collapsedSections.skipped ? (
+                      <ChevronDown size={20} color={colors.textSecondary} />
+                    ) : (
+                      <ChevronUp size={20} color={colors.textSecondary} />
+                    )}
+                  </View>
                 </TouchableOpacity>
                 {!collapsedSections.skipped ? (
                   <View style={styles.previewList}>
@@ -621,11 +650,14 @@ export default function ImportTransactionsScreen() {
               <View style={[styles.infoCard, { backgroundColor: colors.surfaceElevated }]}>
                 <TouchableOpacity style={styles.collapsibleSectionHeader} activeOpacity={0.82} onPress={() => toggleSection('invalid')}>
                   <Text style={[styles.sectionTitle, { color: colors.text }]}>失败项</Text>
-                  {collapsedSections.invalid ? (
-                    <ChevronDown size={20} color={colors.textSecondary} />
-                  ) : (
-                    <ChevronUp size={20} color={colors.textSecondary} />
-                  )}
+                  <View style={styles.sectionHeaderRight}>
+                    <Text style={[styles.sectionCount, { color: colors.textSecondary }]}>{invalidErrors.length} 条</Text>
+                    {collapsedSections.invalid ? (
+                      <ChevronDown size={20} color={colors.textSecondary} />
+                    ) : (
+                      <ChevronUp size={20} color={colors.textSecondary} />
+                    )}
+                  </View>
                 </TouchableOpacity>
                 {!collapsedSections.invalid ? (
                   <View style={styles.previewList}>
@@ -681,13 +713,6 @@ export default function ImportTransactionsScreen() {
               <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
                 已插入 {resultSummary.insertedCount} 条，跳过重复 {resultSummary.skippedDuplicateCount} 条，已跳过 {skippedErrors.length} 条，失败 {failureCount} 条。
               </Text>
-            </View>
-
-            <View style={[styles.infoCard, { backgroundColor: colors.surfaceElevated }]}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>后续检查</Text>
-              <Text style={[styles.bodyText, { color: colors.textSecondary }]}>1. 到首页确认最近账单列表是否已经出现。</Text>
-              <Text style={[styles.bodyText, { color: colors.textSecondary }]}>2. 到统计页确认当月支出和分类归类是否符合预期。</Text>
-              <Text style={[styles.bodyText, { color: colors.textSecondary }]}>3. 如果类别落得不理想，当前可以在账单详情里手动调整。</Text>
             </View>
 
             <View style={styles.resultActions}>
@@ -851,6 +876,15 @@ const styles = StyleSheet.create({
   collapsibleSectionTitleWrap: {
     flex: 1,
   },
+  sectionHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sectionCount: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
   sectionSummaryText: {
     marginTop: 8,
   },
@@ -1009,6 +1043,7 @@ const styles = StyleSheet.create({
   },
   resultActionButton: {
     flex: 1,
+    minHeight: 48,
   },
   modalOverlay: {
     flex: 1,
