@@ -5,7 +5,7 @@ import { useAccountStore } from '@/store/useAccountStore';
 import { useTransactionStore } from '@/store/useTransactionStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Href, useRouter } from 'expo-router';
-import { ChevronRight, LogIn, LogOut, Paintbrush, Settings, Shield, User } from 'lucide-react-native';
+import { ChevronRight, Download, LogIn, LogOut, Paintbrush, Settings, Shield, User } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const menuItems: { icon: any; label: string; color: string; route?: Href }[] = [
   { icon: User, label: '编辑资料', color: '#F472B6' },
   { icon: Paintbrush, label: '界面设置', color: '#F472B6' },
+  { icon: Download, label: '导入账单', color: '#60A5FA', route: '/import-transactions' as Href },
   { icon: Settings, label: '系统设置', color: '#9CA3AF' },
   { icon: Shield, label: '隐私政策', color: '#60A5FA' },
   { icon: LogOut, label: '退出登录', color: '#F472B6' },

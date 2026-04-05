@@ -1,5 +1,6 @@
 import * as db from '@/db/insforge/database';
 import { Transaction } from '@/db/insforge/schema';
+import { NormalizedImportRow } from '@/utils/import/types';
 import { endOfDay, endOfMonth, endOfYear, format, startOfMonth, startOfYear, startOfDay, subDays } from 'date-fns';
 import { create } from 'zustand';
 
@@ -68,6 +69,7 @@ interface TransactionState {
   fetchMonthlyCategorySummary: (type: 'income' | 'expense', month: string) => Promise<void>;
   fetchMonthlyRecentTransactions: (month: string, limit?: number) => Promise<void>;
   addTransaction: (transaction: Omit<Transaction, 'id' | 'created_at' | 'account_name' | 'user_id'>) => Promise<number>;
+  importTransactions: (rows: NormalizedImportRow[], accountId: number) => Promise<db.BatchImportResult>;
   updateTransaction: (id: number, updates: Partial<Omit<Transaction, 'id' | 'created_at' | 'account_name' | 'user_id'>>) => Promise<void>;
   removeTransaction: (id: number) => Promise<void>;
   getTransactionById: (id: number) => Promise<Transaction | null>;
@@ -236,6 +238,33 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       await get().fetchRecentTransactions();
       await get().fetchSummary();
       return id;
+    } catch (error) {
+      set({ error: (error as Error).message });
+      throw error;
+    }
+  },
+
+  importTransactions: async (rows, accountId) => {
+    try {
+      const result = await db.createTransactionsBatch(
+        rows.map((row) => ({
+          type: row.type,
+          amount: row.amount,
+          category: row.category,
+          category_icon: row.category_icon,
+          account_id: accountId,
+          date: row.date,
+          description: row.description,
+          dedupeKey: row.dedupeKey,
+          paymentMethod: row.paymentMethod,
+          source: row.source,
+          platformTransactionId: row.platformTransactionId,
+        }))
+      );
+      await get().fetchTransactions();
+      await get().fetchRecentTransactions();
+      await get().fetchSummary();
+      return result;
     } catch (error) {
       set({ error: (error as Error).message });
       throw error;
