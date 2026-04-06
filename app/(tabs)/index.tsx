@@ -1,6 +1,7 @@
 import { AppPageHeader } from '@/components/AppPageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { HomeClueItem } from '@/components/HomeClueItem';
+import { PageSectionCard } from '@/components/PageSectionCard';
 import { Colors } from '@/constants/theme';
 import { Transaction } from '@/db/insforge/schema';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -60,32 +61,34 @@ export default function HomeScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <AppPageHeader
           title="线索"
-          rightSlot={
-            <View style={[styles.headerBadge, { backgroundColor: colors.surfaceMuted }]}>
-              <Text style={[styles.headerBadgeText, { color: colors.primary }]}>今天也值得记录</Text>
-            </View>
-          }
         />
 
-        <View style={[styles.headlineCard, { backgroundColor: colors.surfaceElevated }]}>
-          <View style={styles.headlineAccent} />
-          <View style={styles.headlineBody}>
-            <Text style={[styles.headlineText, { color: colors.text }]}>{getHomeHeadline()}</Text>
-            <Text style={[styles.headlineCaption, { color: colors.textSecondary }]}>断断续续也没关系</Text>
+        <PageSectionCard>
+          <View style={styles.heroTopRow}>
+            <View>
+              <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>今日概览</Text>
+              <Text style={[styles.heroDate, { color: colors.text }]}>{format(today, 'M月d日')}</Text>
+            </View>
+            <View style={styles.heroAmountWrap}>
+              <Text style={[styles.heroAmountLabel, { color: colors.textSecondary }]}>今日支出</Text>
+              <Text style={[styles.heroAmount, { color: colors.primary }]}>{formatCurrency(todayExpenseTotal)}</Text>
+            </View>
           </View>
-        </View>
+          <View style={[styles.heroQuoteCard, { backgroundColor: colors.softBackground }]}>
+            <Text style={[styles.heroQuote, { color: colors.text }]}>{getHomeHeadline()}</Text>
+            <Text style={[styles.heroMeta, { color: colors.textSecondary }]}>
+              {todayTransactions.length > 0 ? `今天已记录 ${todayTransactions.length} 笔` : '今天还没有新增记录'}
+            </Text>
+          </View>
+        </PageSectionCard>
 
-        <View style={[styles.dayCard, { backgroundColor: colors.surfaceElevated }]}>
-          <View>
-            <Text style={[styles.monthText, { color: colors.textSecondary }]}>{format(today, 'MMM.')}</Text>
-            <Text style={[styles.dayText, { color: colors.text }]}>{format(today, 'dd')}</Text>
+        <PageSectionCard style={styles.listCard}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              {todayTransactions.length > 0 ? '今天的记录' : '最近记录'}
+            </Text>
+            <Text style={[styles.sectionMeta, { color: colors.textSecondary }]}>{displayTransactions.length} 条</Text>
           </View>
-          <View style={styles.totalWrap}>
-            <Text style={[styles.totalAmount, { color: colors.primary }]}>{formatCurrency(todayExpenseTotal)}</Text>
-          </View>
-        </View>
-
-        <View style={[styles.listCard, { backgroundColor: colors.surfaceElevated }]}>
           {displayTransactions.length > 0 ? (
             displayTransactions.map((transaction, index) => (
               <View
@@ -110,7 +113,7 @@ export default function HomeScreen() {
               emoji="📝"
             />
           )}
-        </View>
+        </PageSectionCard>
       </ScrollView>
     </SafeAreaView>
   );
@@ -123,91 +126,70 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 148,
+    paddingBottom: 132,
     gap: 14,
   },
-  headerBadge: {
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  headerBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  headlineCard: {
-    borderRadius: 24,
-    padding: 18,
+  heroTopRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#D96E9B',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.05,
-    shadowRadius: 14,
-    elevation: 2,
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
   },
-  headlineAccent: {
-    width: 3,
-    height: 54,
-    borderRadius: 999,
-    backgroundColor: '#FF75AD',
-    marginRight: 12,
+  heroLabel: {
+    fontSize: 12,
+    fontWeight: '600',
   },
-  headlineBody: {
-    flex: 1,
+  heroDate: {
+    marginTop: 6,
+    fontSize: 30,
+    lineHeight: 34,
+    fontWeight: '800',
   },
-  headlineText: {
-    fontSize: 24,
-    lineHeight: 32,
+  heroAmountWrap: {
+    alignItems: 'flex-end',
+  },
+  heroAmountLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  heroAmount: {
+    marginTop: 6,
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  heroQuoteCard: {
+    marginTop: 18,
+    borderRadius: 18,
+    padding: 16,
+  },
+  heroQuote: {
+    fontSize: 22,
+    lineHeight: 30,
     fontWeight: '700',
-    maxWidth: 250,
   },
-  headlineCaption: {
+  heroMeta: {
     marginTop: 10,
     fontSize: 12,
     fontWeight: '500',
   },
-  dayCard: {
-    borderRadius: 24,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
+  listCard: {
+    paddingVertical: 14,
+    minHeight: 240,
+  },
+  sectionHeader: {
+    paddingHorizontal: 4,
+    paddingBottom: 8,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    shadowColor: '#D96E9B',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.05,
-    shadowRadius: 14,
-    elevation: 2,
+    alignItems: 'center',
   },
-  monthText: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  dayText: {
-    marginTop: 4,
-    fontSize: 42,
-    lineHeight: 46,
+  sectionTitle: {
+    fontSize: 16,
     fontWeight: '800',
   },
-  totalWrap: {
-    alignItems: 'flex-end',
-    paddingTop: 10,
-  },
-  totalAmount: {
-    fontSize: 24,
-    fontWeight: '800',
-  },
-  listCard: {
-    borderRadius: 24,
-    paddingHorizontal: 18,
-    paddingVertical: 2,
-    minHeight: 240,
-    shadowColor: '#D96E9B',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.05,
-    shadowRadius: 14,
-    elevation: 2,
+  sectionMeta: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   listRow: {
     minHeight: 116,

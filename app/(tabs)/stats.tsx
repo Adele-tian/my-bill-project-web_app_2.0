@@ -1,4 +1,5 @@
 import { AppPageHeader } from '@/components/AppPageHeader';
+import { PageSectionCard } from '@/components/PageSectionCard';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTransactionStore } from '@/store/useTransactionStore';
@@ -201,11 +202,11 @@ export default function StatsScreen() {
           title="洞察"
           rightSlot={
             <View style={styles.headerActions}>
-              <TouchableOpacity style={[styles.headerIconButton, { backgroundColor: colors.surfaceMuted }]}>
+              <TouchableOpacity style={[styles.headerIconButton, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}>
                 <Search size={18} color={colors.text} />
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.filterChip, { backgroundColor: colors.surfaceMuted }]}
+                style={[styles.filterChip, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}
                 onPress={() => setSelectedCategoryType((current) => (current === 'expense' ? 'income' : 'expense'))}
               >
                 <Text style={[styles.filterChipText, { color: colors.text }]}>
@@ -217,7 +218,7 @@ export default function StatsScreen() {
           }
         />
 
-        <View style={[styles.heroCard, { backgroundColor: colors.surfaceElevated }]}>
+        <PageSectionCard style={styles.heroCard}>
           <View style={styles.heroTopRow}>
             <View style={styles.monthSwitch}>
               <TouchableOpacity
@@ -284,10 +285,10 @@ export default function StatsScreen() {
               {formatCurrency(monthlySummary.yearExpense)}
             </Text>
           </View>
-        </View>
+        </PageSectionCard>
 
         <View style={styles.dualRow}>
-          <View style={[styles.sharedSmallCard, styles.calendarCard, { backgroundColor: colors.surfaceElevated }]}>
+          <PageSectionCard style={[styles.sharedSmallCard, styles.calendarCard]}>
             <Text style={[styles.cardTitle, { color: colors.text }]}>支出日历</Text>
             <View style={styles.weekLabelRow}>
               {WEEKDAY_LABELS.map((label) => (
@@ -323,9 +324,9 @@ export default function StatsScreen() {
               <Text style={[styles.calendarCount, { color: colors.text }]}>{monthlySummary.transactionCount}</Text>
               <Text style={[styles.calendarUnit, { color: colors.textSecondary }]}>笔</Text>
             </View>
-          </View>
+          </PageSectionCard>
 
-          <View style={[styles.sharedSmallCard, styles.moodCard, { backgroundColor: colors.surfaceElevated }]}>
+          <PageSectionCard style={[styles.sharedSmallCard, styles.moodCard]}>
             <View style={styles.categoryHeader}>
               <Text style={[styles.cardTitle, { color: colors.text }]}>心情账单</Text>
             </View>
@@ -349,10 +350,10 @@ export default function StatsScreen() {
                 </View>
               ))}
             </View>
-          </View>
+          </PageSectionCard>
         </View>
 
-        <View style={[styles.categoryListCard, { backgroundColor: colors.surfaceElevated }]}>
+        <PageSectionCard style={styles.categoryListCard}>
           <View style={styles.categoryListHeader}>
             <Text style={[styles.cardTitle, { color: colors.text }]}>分类占比</Text>
             <View style={[styles.categoryCompareSwitch, { backgroundColor: colors.surfaceMuted }]}>
@@ -459,9 +460,9 @@ export default function StatsScreen() {
               </Text>
             </View>
           )}
-        </View>
+        </PageSectionCard>
 
-        <View style={[styles.flowCard, { backgroundColor: colors.surfaceElevated }]}>
+        <PageSectionCard style={styles.flowCard}>
           <View style={styles.flowHeader}>
             <Text style={[styles.cardTitle, { color: colors.text }]}>账单流水</Text>
             <View style={styles.flowHeadLabels}>
@@ -503,7 +504,7 @@ export default function StatsScreen() {
               </Text>
             </View>
           )}
-        </View>
+        </PageSectionCard>
       </ScrollView>
 
     </SafeAreaView>
@@ -529,6 +530,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -539,19 +541,14 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     paddingHorizontal: 12,
+    borderWidth: 1,
   },
   filterChipText: {
     fontSize: 14,
     fontWeight: '600',
   },
   heroCard: {
-    borderRadius: 28,
     padding: 18,
-    shadowColor: '#D96E9B',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-    elevation: 3,
   },
   heroTopRow: {
     flexDirection: 'row',
@@ -647,13 +644,7 @@ const styles = StyleSheet.create({
   },
   sharedSmallCard: {
     flex: 1,
-    borderRadius: 24,
     padding: 16,
-    shadowColor: '#D96E9B',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.05,
-    shadowRadius: 14,
-    elevation: 3,
   },
   calendarCard: {
     minHeight: 220,
@@ -747,13 +738,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   categoryListCard: {
-    borderRadius: 24,
     padding: 16,
-    shadowColor: '#D96E9B',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.05,
-    shadowRadius: 14,
-    elevation: 3,
   },
   categoryListHeader: {
     flexDirection: 'row',
@@ -840,13 +825,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   flowCard: {
-    borderRadius: 24,
     padding: 16,
-    shadowColor: '#D96E9B',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.05,
-    shadowRadius: 14,
-    elevation: 3,
   },
   flowHeader: {
     flexDirection: 'row',

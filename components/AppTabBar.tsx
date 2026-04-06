@@ -62,7 +62,10 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
                 key={route.key}
                 accessibilityRole="button"
                 accessibilityLabel={label}
-                style={styles.tabButton}
+                style={[
+                  styles.tabButton,
+                  focused ? { backgroundColor: colors.surfaceMuted } : null,
+                ]}
                 onPress={onPress}
                 activeOpacity={0.8}>
                 <IconSymbol size={18} name={iconName} color={color} />
@@ -125,44 +128,44 @@ const styles = StyleSheet.create({
   addButtonWrap: {
     position: 'absolute',
     right: 18,
-    bottom: 18,
+    bottom: 12,
     zIndex: 20,
     elevation: 20,
-    width: 116,
-    height: 116,
+    width: 98,
+    height: 98,
     alignItems: 'center',
     justifyContent: 'center',
   },
   addButtonHaloOuter: {
     position: 'absolute',
-    width: 114,
-    height: 114,
-    borderRadius: 57,
-    opacity: 1,
+    width: 94,
+    height: 94,
+    borderRadius: 47,
+    opacity: 0.68,
   },
   addButtonHaloInner: {
     position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    opacity: 1,
+    width: 82,
+    height: 82,
+    borderRadius: 41,
+    opacity: 0.72,
   },
   addButton: {
-    width: 86,
-    height: 86,
-    borderRadius: 43,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.24,
-    shadowRadius: 20,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 6,
   },
   addButtonIcon: {
     color: '#FFFFFF',
-    fontSize: 39,
-    lineHeight: 39,
+    fontSize: 32,
+    lineHeight: 32,
     fontWeight: '700',
-    marginTop: -3,
+    marginTop: -2,
   },
 });
