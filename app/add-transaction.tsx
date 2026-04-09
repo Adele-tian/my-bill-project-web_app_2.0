@@ -16,6 +16,7 @@ import { useAccountStore } from '@/store/useAccountStore';
 import { useTransactionStore } from '@/store/useTransactionStore';
 import { getTransactionEntryPreferences, saveTransactionEntryPreferences } from '@/utils/transaction-entry-preferences';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '@/utils/categories';
+import { getTodayString } from '@/utils/format';
 import {
   buildDescriptionWithEmotion,
   getEmotionMeta,
@@ -23,7 +24,7 @@ import {
   stripEmotionFromDescription,
   type EmotionKey,
 } from '@/utils/home-clues';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { Camera, Mic, Sparkles, Type, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -66,7 +67,7 @@ function createFormState(overrides: Partial<FormState> = {}): FormState {
     selectedCategory: overrides.selectedCategory ?? getDefaultCategory(nextType),
     selectedAccountId: overrides.selectedAccountId ?? null,
     description: overrides.description ?? '',
-    entryDate: overrides.entryDate ?? new Date().toISOString(),
+    entryDate: overrides.entryDate ?? getTodayString(),
     selectedEmotion: overrides.selectedEmotion ?? null,
   };
 }
@@ -240,16 +241,24 @@ export default function AddTransactionScreen() {
 
   const isSaveDisabled = !form.amount || Number.parseFloat(form.amount) <= 0 || !form.selectedAccountId || isSubmitting || isLoading || isAiLoading;
 
-  const closeToHome = useCallback(async () => {
-    await Promise.all([
+  const refreshAfterSave = useCallback(() => {
+    void Promise.allSettled([
       fetchAccounts(),
       fetchTransactions(),
       fetchRecentTransactions(8),
       fetchSummary(),
-    ]);
+    ]).then((results) => {
+      const failedRefreshes = results.filter((result) => result.status === 'rejected');
+      if (failedRefreshes.length > 0) {
+        console.warn('Transaction saved, but some post-save refreshes failed.', failedRefreshes);
+      }
+    });
+  }, [fetchAccounts, fetchTransactions, fetchRecentTransactions, fetchSummary]);
 
-    router.replace('/(tabs)');
-  }, [fetchAccounts, fetchTransactions, fetchRecentTransactions, fetchSummary, router]);
+  const closeToHome = useCallback(() => {
+    router.replace('/' as Href);
+    refreshAfterSave();
+  }, [refreshAfterSave, router]);
 
   const handleSave = async () => {
     if (isSaveDisabled) {
@@ -267,14 +276,14 @@ export default function AddTransactionScreen() {
           category: form.selectedCategory.name,
           category_icon: form.selectedCategory.icon,
           account_id: form.selectedAccountId!,
-          date: form.entryDate || new Date().toISOString(),
+          date: form.entryDate || getTodayString(),
           description: buildDescriptionWithEmotion(form.description || form.selectedCategory.name, form.selectedEmotion),
         });
         saveTransactionEntryPreferences({
           lastAccountId: form.selectedAccountId,
           lastType: form.type,
         });
-        await closeToHome();
+        closeToHome();
       } else {
         await addTransaction({
           type: form.type,
@@ -282,14 +291,14 @@ export default function AddTransactionScreen() {
           category: form.selectedCategory.name,
           category_icon: form.selectedCategory.icon,
           account_id: form.selectedAccountId!,
-          date: form.entryDate || new Date().toISOString(),
+          date: form.entryDate || getTodayString(),
           description: buildDescriptionWithEmotion(form.description || form.selectedCategory.name, form.selectedEmotion),
         });
         saveTransactionEntryPreferences({
           lastAccountId: form.selectedAccountId,
           lastType: form.type,
         });
-        await closeToHome();
+        closeToHome();
       }
     } catch {
       Alert.alert('错误', isEditMode ? '更新失败' : '保存失败');

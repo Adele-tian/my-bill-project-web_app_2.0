@@ -1,4 +1,6 @@
 import { assertInsForgeConfigured, insforge } from '@/db/insforge/client';
+import { buildImportFingerprint, buildWeakImportFingerprint } from '@/utils/import/bill-import';
+import { parseAppDate } from '@/utils/format';
 import {
   eachDayOfInterval,
   eachMonthOfInterval,
@@ -32,6 +34,12 @@ type AccountInput = {
   archived_at?: string | null;
 };
 type TransactionInput = Omit<Transaction, 'id' | 'created_at' | 'account_name' | 'user_id'>;
+type ImportTransactionInput = TransactionInput & {
+  dedupeKey?: string;
+  paymentMethod?: string;
+  source?: 'wechat' | 'alipay';
+  platformTransactionId?: string;
+};
 type TransactionUpdate = Partial<TransactionInput>;
 type AccountUpdate = Partial<AccountInput>;
 export type SummaryPeriod = 'week' | 'month' | 'year';
@@ -61,6 +69,11 @@ export type MonthlyTrendSummaryItem = {
   expense: number;
   transactionCount: number;
 };
+export type BatchImportResult = {
+  insertedCount: number;
+  skippedDuplicateCount: number;
+  failedCount: number;
+};
 
 export type AccountRetirementMode = 'hide' | 'archive-transfer' | 'delete';
 
@@ -78,12 +91,12 @@ function ensureData<T>(data: T | null, error: { message?: string } | null, fallb
 
 function sortTransactions(transactions: Transaction[]): Transaction[] {
   return [...transactions].sort((a, b) => {
-    const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+    const dateDiff = parseAppDate(b.date).getTime() - parseAppDate(a.date).getTime();
     if (dateDiff !== 0) {
       return dateDiff;
     }
 
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    return parseAppDate(b.created_at).getTime() - parseAppDate(a.created_at).getTime();
   });
 }
 
@@ -110,7 +123,7 @@ function applyDateRange<T extends { date: string }>(items: T[], startDate?: stri
   const end = getBoundaryTime(endDate, 'end');
 
   return items.filter((item) => {
-    const value = new Date(item.date).getTime();
+    const value = parseAppDate(item.date).getTime();
     return value >= start && value <= end;
   });
 }
@@ -411,6 +424,88 @@ export async function createTransaction(transaction: TransactionInput): Promise<
   const balanceChange = transaction.type === 'income' ? transaction.amount : -transaction.amount;
   await adjustAccountBalance(transaction.account_id, balanceChange, user.id);
   return row.id;
+}
+
+export async function createTransactionsBatch(transactions: ImportTransactionInput[]): Promise<BatchImportResult> {
+  if (transactions.length === 0) {
+    return {
+      insertedCount: 0,
+      skippedDuplicateCount: 0,
+      failedCount: 0,
+    };
+  }
+
+  const user = await getCurrentUserOrThrow();
+  const existingTransactions = await fetchAllTransactionsWithAccountNames(user.id);
+  const existingFingerprints = new Set(existingTransactions.map((transaction) => buildWeakImportFingerprint(transaction)));
+  const batchFingerprints = new Set<string>();
+  const batchWeakFingerprints = new Set<string>();
+  const accountsMap = await fetchAccountsMap(user.id);
+
+  const payloads: Array<TransactionInput & { user_id: string }> = [];
+  const balanceDeltas = new Map<number, number>();
+  let skippedDuplicateCount = 0;
+  let failedCount = 0;
+
+  for (const transaction of transactions) {
+    const account = accountsMap.get(transaction.account_id);
+    if (!account || account.status === 'archived') {
+      failedCount += 1;
+      continue;
+    }
+
+    const fingerprint = buildImportFingerprint(transaction);
+    const weakFingerprint = buildWeakImportFingerprint(transaction);
+    if (existingFingerprints.has(weakFingerprint) || batchFingerprints.has(fingerprint) || batchWeakFingerprints.has(weakFingerprint)) {
+      skippedDuplicateCount += 1;
+      continue;
+    }
+
+    batchFingerprints.add(fingerprint);
+    batchWeakFingerprints.add(weakFingerprint);
+    const {
+      dedupeKey: _dedupeKey,
+      paymentMethod: _paymentMethod,
+      source: _source,
+      platformTransactionId: _platformTransactionId,
+      ...insertableTransaction
+    } = transaction;
+
+    payloads.push({ ...insertableTransaction, user_id: user.id });
+
+    const delta = transaction.type === 'income' ? transaction.amount : -transaction.amount;
+    balanceDeltas.set(transaction.account_id, (balanceDeltas.get(transaction.account_id) ?? 0) + delta);
+  }
+
+  if (payloads.length === 0) {
+    return {
+      insertedCount: 0,
+      skippedDuplicateCount,
+      failedCount,
+    };
+  }
+
+  const { error } = await insforge.database.from('transactions').insert(payloads);
+  if (error) {
+    throw new Error(error.message || 'Failed to import transactions');
+  }
+
+  await Promise.all(
+    Array.from(balanceDeltas.entries()).map(async ([accountId, delta]) => {
+      const account = accountsMap.get(accountId);
+      if (!account) {
+        return;
+      }
+
+      await setAccountBalance(accountId, account.balance + delta, user.id);
+    })
+  );
+
+  return {
+    insertedCount: payloads.length,
+    skippedDuplicateCount,
+    failedCount,
+  };
 }
 
 export async function hideAccount(id: number): Promise<void> {

@@ -1,3 +1,6 @@
+import * as LucideIcons from 'lucide-react-native';
+import type { LucideIcon } from 'lucide-react-native';
+
 // 支出类别配置
 export const EXPENSE_CATEGORIES = [
   { name: '餐饮', icon: 'utensils', color: '#F472B6' },
@@ -48,3 +51,11 @@ export function getAllCategories(type: 'income' | 'expense') {
   return type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 }
 
+export function getCategoryIconComponent(iconName: string) {
+  const componentName = iconName
+    .split('-')
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join('');
+
+  return (((LucideIcons as unknown) as Record<string, LucideIcon | undefined>)[componentName] ?? LucideIcons.Circle) as LucideIcon;
+}

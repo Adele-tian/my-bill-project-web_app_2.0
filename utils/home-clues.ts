@@ -6,6 +6,10 @@ type HomeEmotion = {
   key?: EmotionKey;
 };
 
+type TransactionEmotionContext = {
+  description: string;
+};
+
 const DEFAULT_HEADLINES = [
   '我们每时每刻都在栽培着自己的未来',
 ];
@@ -33,24 +37,7 @@ const EMOTION_META: Record<EmotionKey, HomeEmotion> = {
   impulsive: { key: 'impulsive', emoji: '🤯', label: '上头了' },
   lesson_learned: { key: 'lesson_learned', emoji: '🤡', label: '买教训' },
 };
-
-const CATEGORY_EMOTION_MAP: Record<string, HomeEmotion> = {
-  餐饮: EMOTION_META.impulsive,
-  娱乐: { emoji: '🎮', label: '超开心' },
-  红包: { emoji: '🧧', label: '好兆头' },
-  购物: EMOTION_META.super_happy,
-  居家: { emoji: '🏡', label: '稳稳的' },
-  通讯: { emoji: '📱', label: '安排好' },
-  交通: { emoji: '🚌', label: '在路上' },
-  水电: { emoji: '⚡', label: '必要呀' },
-  医疗: { emoji: '🩺', label: '照顾好自己' },
-  教育: { emoji: '📚', label: '在投入' },
-  工资: { emoji: '💼', label: '有收获' },
-  奖金: { emoji: '🎉', label: '真不错' },
-  投资: { emoji: '📈', label: '有盼头' },
-  兼职: { emoji: '✨', label: '又进步了' },
-  其他: { emoji: '🌿', label: '慢慢来' },
-};
+const DEFAULT_EMOTION_KEYS: EmotionKey[] = ['super_happy', 'impulsive', 'lesson_learned'];
 
 const EMOTION_PATTERN = /\[emotion:(super_happy|impulsive|lesson_learned)\]\s*/;
 
@@ -85,11 +72,27 @@ export function buildDescriptionWithEmotion(rawDescription: string, emotion: Emo
   return cleanDescription ? `${marker} ${cleanDescription}` : marker;
 }
 
-export function getHomeEmotion(category: string, description = ''): HomeEmotion {
-  const explicitEmotion = parseEmotionFromDescription(description);
+export function getEmotionHistory(transactions: TransactionEmotionContext[]): EmotionKey[] {
+  return transactions.flatMap((transaction) => {
+    const emotion = parseEmotionFromDescription(transaction.description);
+    return emotion ? [emotion] : [];
+  });
+}
+
+export function getRandomEmotion(candidates: EmotionKey[] = []): HomeEmotion {
+  const pool = candidates.length > 0 ? candidates : DEFAULT_EMOTION_KEYS;
+  const randomIndex = Math.floor(Math.random() * pool.length);
+  return getEmotionMeta(pool[randomIndex]);
+}
+
+export function getHomeEmotion(
+  transaction: TransactionEmotionContext,
+  transactions: TransactionEmotionContext[] = []
+): HomeEmotion {
+  const explicitEmotion = parseEmotionFromDescription(transaction.description);
   if (explicitEmotion) {
     return getEmotionMeta(explicitEmotion);
   }
 
-  return CATEGORY_EMOTION_MAP[category] ?? { emoji: '🌿', label: '慢慢来' };
+  return getRandomEmotion(getEmotionHistory(transactions));
 }

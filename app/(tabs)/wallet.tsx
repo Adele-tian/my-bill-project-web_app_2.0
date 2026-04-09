@@ -1,6 +1,7 @@
 import { AppPageHeader } from '@/components/AppPageHeader';
 import { AccountItem } from '@/components/AccountItem';
 import { EmptyState } from '@/components/EmptyState';
+import { PageSectionCard } from '@/components/PageSectionCard';
 import { Colors } from '@/constants/theme';
 import { Account } from '@/db/insforge/schema';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -53,7 +54,15 @@ export default function WalletScreen() {
           <AppPageHeader
             title="钱包"
             rightSlot={
-              <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.surfaceMuted }]} onPress={handleAddAccount}>
+              <TouchableOpacity
+                style={[
+                  styles.addButton,
+                  {
+                    backgroundColor: colors.surfaceMuted,
+                    borderColor: colors.border,
+                  },
+                ]}
+                onPress={handleAddAccount}>
                 <Plus size={16} color={colors.primary} />
                 <Text style={[styles.addButtonText, { color: colors.primary }]}>添加账户</Text>
               </TouchableOpacity>
@@ -61,7 +70,7 @@ export default function WalletScreen() {
           />
         </View>
 
-        <View style={[styles.balanceCard, { backgroundColor: colors.surfaceElevated }]}>
+        <PageSectionCard style={styles.balanceCard}>
           <View style={styles.balanceHeader}>
             <View style={[styles.walletIconWrap, { backgroundColor: colors.primaryLight }]}>
               <Wallet size={24} color={colors.primary} />
@@ -74,33 +83,39 @@ export default function WalletScreen() {
           <Text style={[styles.accountInfo, { color: colors.textSecondary }]}>
             当前显示 {visibleAccountCount} 个账户，共管理 {accounts.length} 个账户。
           </Text>
-        </View>
+        </PageSectionCard>
 
         {activeAccounts.length > 0 ? (
-          <View style={styles.accountList}>
-            {activeAccounts.map((account) => (
-              <AccountItem
-                key={account.id}
-                account={account}
-                onPress={() => handleEditAccount(account)}
-                onEdit={handleEditAccount}
-              />
-            ))}
-          </View>
+          <PageSectionCard style={styles.listCard}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>账户列表</Text>
+              <Text style={[styles.sectionMeta, { color: colors.textSecondary }]}>{visibleAccountCount} 个</Text>
+            </View>
+            <View style={styles.accountList}>
+              {activeAccounts.map((account) => (
+                <AccountItem
+                  key={account.id}
+                  account={account}
+                  onPress={() => handleEditAccount(account)}
+                  onEdit={handleEditAccount}
+                />
+              ))}
+            </View>
+          </PageSectionCard>
         ) : (
-          <View style={styles.emptyWrap}>
+          <PageSectionCard style={styles.emptyWrap}>
             <EmptyState emoji="👆" title="还没有账户" description="点击上方按钮添加第一个账户" />
             <TouchableOpacity style={[styles.emptyAddButton, { backgroundColor: colors.primary }]} onPress={handleAddAccount}>
               <Plus size={16} color="#FFFFFF" />
               <Text style={styles.emptyAddButtonText}>立即添加账户</Text>
             </TouchableOpacity>
-          </View>
+          </PageSectionCard>
         )}
 
         {inactiveAccounts.length > 0 ? (
           <View style={styles.inactiveSection}>
             <TouchableOpacity
-              style={[styles.toggleInactiveButton, { backgroundColor: colors.surfaceElevated }]}
+              style={[styles.toggleInactiveButton, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
               onPress={() => setShowInactiveAccounts((value) => !value)}
             >
               <Text style={[styles.toggleInactiveText, { color: colors.textSecondary }]}>
@@ -114,16 +129,18 @@ export default function WalletScreen() {
             </TouchableOpacity>
 
             {showInactiveAccounts ? (
-              <View style={styles.accountList}>
-                {inactiveAccounts.map((account) => (
-                  <AccountItem
-                    key={account.id}
-                    account={account}
-                    onPress={() => handleEditAccount(account)}
-                    onEdit={handleEditAccount}
-                  />
-                ))}
-              </View>
+              <PageSectionCard style={styles.inactiveListCard}>
+                <View style={styles.accountList}>
+                  {inactiveAccounts.map((account) => (
+                    <AccountItem
+                      key={account.id}
+                      account={account}
+                      onPress={() => handleEditAccount(account)}
+                      onEdit={handleEditAccount}
+                    />
+                  ))}
+                </View>
+              </PageSectionCard>
             ) : null}
           </View>
         ) : null}
@@ -134,18 +151,20 @@ export default function WalletScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  pagePadding: { paddingHorizontal: 20, paddingTop: 10 },
-  addButton: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, gap: 4 },
-  addButtonText: { fontSize: 14, fontWeight: '500' },
+  pagePadding: { paddingHorizontal: 16, paddingTop: 12 },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    gap: 4,
+  },
+  addButtonText: { fontSize: 14, fontWeight: '600' },
   balanceCard: {
-    margin: 20,
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#D96E9B',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.05,
-    shadowRadius: 14,
-    elevation: 3,
+    marginHorizontal: 16,
+    marginTop: 14,
   },
   balanceHeader: { flexDirection: 'row', alignItems: 'center' },
   walletIconWrap: { width: 48, height: 48, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
@@ -153,12 +172,34 @@ const styles = StyleSheet.create({
   balanceLabel: { fontSize: 12 },
   balanceAmount: { fontSize: 28, fontWeight: 'bold', marginTop: 2 },
   accountInfo: { fontSize: 14, marginTop: 16, lineHeight: 20 },
-  accountList: { paddingHorizontal: 20, gap: 12 },
+  listCard: {
+    marginHorizontal: 16,
+    marginTop: 14,
+    paddingTop: 14,
+    paddingBottom: 14,
+  },
+  sectionHeader: {
+    paddingHorizontal: 2,
+    paddingBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  sectionMeta: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  accountList: { gap: 12 },
   inactiveSection: { marginBottom: 24 },
-  emptyWrap: { margin: 20 },
+  emptyWrap: { marginHorizontal: 16, marginTop: 14 },
   toggleInactiveButton: {
-    marginHorizontal: 20,
-    borderRadius: 16,
+    marginHorizontal: 16,
+    borderRadius: 18,
+    borderWidth: 1,
     paddingHorizontal: 16,
     paddingVertical: 14,
     flexDirection: 'row',
@@ -172,7 +213,13 @@ const styles = StyleSheet.create({
   },
   toggleInactiveText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
+  },
+  inactiveListCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingTop: 14,
+    paddingBottom: 14,
   },
   emptyAddButton: {
     marginTop: 16,
